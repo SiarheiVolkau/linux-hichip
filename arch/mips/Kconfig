@@ -117,6 +117,29 @@ config MIPS_GENERIC
 config MACH_GENERIC_CORE
 	bool
 
+config MACH_HICHIP
+	bool
+	select CEVT_R4K
+	select CSRC_R4K
+	select SYS_HAS_CPU_MIPS32_R2
+#	select SYS_HAS_EARLY_PRINTK
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_MIPS16
+	select DMA_NONCOHERENT
+	select IRQ_MIPS_CPU
+	select GENERIC_IRQ_CHIP
+	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
+	select USE_OF
+	select MIPS_EXTERNAL_TIMER
+	select SERIAL_8250
+	select SERIAL_OF_PLATFORM
+	select USE_GENERIC_EARLY_PRINTK_8250
+	select COMMON_CLK
+#	select PINCTRL TODO
+#	select GPIOLIB TODO
+#	select CPU_SUPPORTS_CPUFREQ TODO
+
 config MACH_INGENIC
 	bool
 	select SYS_SUPPORTS_32BIT_KERNEL
@@ -445,6 +468,15 @@ config MACH_JAZZ
 	  used by several vendors to build RISC/os and Windows NT workstations.
 	  Members include the Acer PICA, MIPS Magnum 4000, MIPS Millennium and
 	  Olivetti M700-10 workstations.
+
+config MACH_HICHIP_SOC
+	bool "HiChip SoC based machines"
+	select MACH_HICHIP
+	select MIPS_GENERIC
+	select MACH_GENERIC_CORE
+	select SYS_SUPPORTS_ZBOOT_UART16550
+	select BOOT_RAW
+	select NO_EXCEPT_FILL
 
 config MACH_INGENIC_SOC
 	bool "Ingenic SoC based machines"
@@ -1059,6 +1091,7 @@ source "arch/mips/bcm63xx/Kconfig"
 source "arch/mips/bmips/Kconfig"
 source "arch/mips/econet/Kconfig"
 source "arch/mips/generic/Kconfig"
+source "arch/mips/hichip/Kconfig"
 source "arch/mips/ingenic/Kconfig"
 source "arch/mips/jazz/Kconfig"
 source "arch/mips/lantiq/Kconfig"
@@ -2107,6 +2140,7 @@ config MIPS_VA_BITS_48
 config ZBOOT_LOAD_ADDRESS
 	hex "Compressed kernel load address"
 	default 0xffffffff80400000 if BCM47XX
+	default 0xffffffff81000000 if MACH_HICHIP
 	default 0x0
 	depends on SYS_SUPPORTS_ZBOOT
 	help
@@ -2978,6 +3012,7 @@ choice
 	default MIPS_CMDLINE_FROM_DTB if USE_OF && !ATH79 && !MACH_INGENIC && \
 					 !MACH_LOONGSON64 && !MACH_LOONGSON32 && \
 					 !MIPS_MALTA && !CAVIUM_OCTEON_SOC
+	default MIPS_CMDLINE_DTB_EXTEND if MACH_HICHIP
 	default MIPS_CMDLINE_FROM_BOOTLOADER
 
 	config MIPS_CMDLINE_FROM_DTB

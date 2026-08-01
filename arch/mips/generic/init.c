@@ -28,6 +28,11 @@ void __init prom_init(void)
 {
 	plat_get_fdt();
 	BUG_ON(!fdt);
+#if defined (CONFIG_MACH_HICHIP) && \
+	defined(CONFIG_USE_GENERIC_EARLY_PRINTK_8250)
+#define UART0_BASE CKSEG1ADDR(0x18818300)
+	setup_8250_early_printk_port(UART0_BASE, 0, 0x100);
+#endif
 }
 
 void __init *plat_get_fdt(void)

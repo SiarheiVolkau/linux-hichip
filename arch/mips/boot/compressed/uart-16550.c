@@ -15,6 +15,11 @@
 #define PORT(offset) (CKSEG1ADDR(UART_BASE) + (offset))
 #endif
 
+#if defined(CONFIG_MACH_HICHIP_SOC)
+#define UART_BASE 0x18818300 /* UART0 base */
+#define PORT(offset) (CKSEG1ADDR(UART_BASE) + (offset))
+#endif
+
 #ifdef CONFIG_MACH_INGENIC
 #define INGENIC_UART_BASE_ADDR	(0x10030000 + 0x1000 * CONFIG_ZBOOT_INGENIC_UART)
 #define PORT(offset) (CKSEG1ADDR(INGENIC_UART_BASE_ADDR) + (4 * offset))

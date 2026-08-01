@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "hc16xx.dtsi"
+
+/ {
+	compatible = "datafrog,sf3000", "noname,sf3000";
+	model = "SF3000";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p1 rw rootwait";
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x10000000>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};

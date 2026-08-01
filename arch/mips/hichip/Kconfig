@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+
+choice
+	prompt "Machine type"
+	depends on MACH_HICHIP_SOC
+	default HC16XX_SF3000
+
+config HC16XX_SF3000
+	bool "Data Frog SF3000"
+
+endchoice

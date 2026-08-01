@@ -4,6 +4,7 @@ subdir-y	+= cavium-octeon
 subdir-y	+= econet
 subdir-y	+= mobileye
 subdir-y	+= img
+subdir-y	+= hichip
 subdir-y	+= ingenic
 subdir-y	+= lantiq
 subdir-y	+= loongson

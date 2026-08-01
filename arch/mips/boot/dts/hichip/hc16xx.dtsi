@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/dts-v1/;
+
+/ {
+	compatible = "hichip,hc16xx";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	hosc: external-clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;  /* 24 MHz, typical */
+	};
+
+	dummy_cpuclk: clock@cpu0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <1188000000>;  /* 1.2 GHz */
+	};
+
+	cpus: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "mips,mips74Kc";
+			reg = <0>;
+
+			clocks = <&dummy_cpuclk>;
+			clock-names = "cpu";
+		};
+	};
+
+	cpuintc: interrupt-controller {
+		compatible = "mti,cpu-interrupt-controller";
+		interrupt-controller;
+		#address-cells = <0>;
+		#interrupt-cells = <1>;
+	};
+
+	uart0: serial@18818300 {
+		compatible = "ns16550";
+		reg = <0x18818300 0x100>;
+		reg-io-width = <1>;
+		reg-shift = <0>;
+
+		/* It isn't known how to rule source clock
+		 * so, this uart is fixed at 115200 baud.
+		 */
+		clock-frequency = <1843200>;
+		status = "disabled";
+	};
+};
