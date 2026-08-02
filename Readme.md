@@ -71,6 +71,8 @@ Current priority is to make SF3000 functional for it's use case - retro games em
 The kernel can be built using any modern GCC MIPS little-endian cross compiler:
 
 ```bash
+make ARCH=mips CROSS_COMPILE=mipsel-linux-gnu- sf3000_defconfig
+make ARCH=mips CROSS_COMPILE=mipsel-linux-gnu-
 make ARCH=mips CROSS_COMPILE=mipsel-linux-gnu- vmlinuz.bin
 cat arch/mips/boot/vmlinuz.bin arch/mips/boot/dts/hichip/sf3000.dtb > vmlinuz.bin
 ```
