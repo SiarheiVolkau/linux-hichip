@@ -24,8 +24,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | MIPS32r1 CPU |  | Not planned |
 | Early console | Done | 8250/16550 compatible |
 | Serial console | Done | Runtime console operational |
-| Interrupts | Partial | Generic CPU interrupt controller only |
-| External IRQ controller | WIP | In development |
+| IRQ controller | Done | |
 | Clock framework | WIP | Initial implementation planned |
 | Timers | WIP | CP0 timers currently in use |
 | RTC |  |  |
