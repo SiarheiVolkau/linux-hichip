@@ -51,14 +51,15 @@
 	};
 
 	uart0: serial@18818300 {
-		compatible = "ns16550";
+		compatible = "ns16550a";
 		reg = <0x18818300 0x100>;
 		reg-io-width = <1>;
 		reg-shift = <0>;
+		fifo-size = <16>;
 
-		/* It isn't known how to rule source clock
-		 * so, this uart is fixed at 115200 baud.
-		 */
+		interrupt-parent = <&intc>;
+		interrupts = <16>;
+
 		clock-frequency = <1843200>;
 		status = "disabled";
 	};
