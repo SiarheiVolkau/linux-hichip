@@ -207,6 +207,12 @@ config FARADAY_FTINTC010
 	select IRQ_DOMAIN
 	select SPARSE_IRQ
 
+config HC16XX_IRQ
+	bool "HiChip HC16xx secondary interrupt controller"
+	depends on MACH_HICHIP
+	select GENERIC_IRQ_CHIP
+	select IRQ_DOMAIN
+
 config HISILICON_IRQ_MBIGEN
 	bool
 	select ARM_GIC_V3

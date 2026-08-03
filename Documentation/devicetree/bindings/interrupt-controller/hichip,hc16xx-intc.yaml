@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/interrupt-controller/hichip,hc16xx-intc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: HiChip HC16xx secondary interrupt controller
+
+maintainers:
+  - Siarhei Volkau <lis8215@gmail.com>
+
+description: |
+  Secondary, chained interrupt controller found on HiChip HC16xx SoCs.
+  It multiplexes a bank of SoC interrupt sources - each with its own
+  polarity/status/enable bits, plus one summarized mailbox interrupt.
+  It routes them onto two lines (EIRQ2, EIRQ3) of the MIPS CPU interrupt
+  controller (mti,cpu-interrupt-controller) with hardwired priorities.
+
+allOf:
+  - $ref: /schemas/interrupt-controller.yaml#
+
+properties:
+  compatible:
+    const: hichip,hc16xx-intc
+
+  reg:
+    maxItems: 1
+
+  interrupt-controller: true
+
+  "#interrupt-cells":
+    const: 1
+
+  interrupts:
+    description:
+      The two parent interrupt lines this controller is chained on.
+    items:
+      - description: Higher priority parent EIRQ line on the MIPS CPU interrupt controller
+      - description: Lower priority parent EIRQ line on the MIPS CPU interrupt controller
+
+required:
+  - compatible
+  - reg
+  - interrupt-controller
+  - "#interrupt-cells"
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    interrupt-controller@18800020 {
+        compatible = "hichip,hc16xx-intc";
+
+        interrupt-controller;
+        #interrupt-cells = <1>;
+
+        interrupt-parent = <&cpuintc>;
+        interrupts = <3>, <2>;
+
+        reg = <0x18800020 0x24>;
+    };

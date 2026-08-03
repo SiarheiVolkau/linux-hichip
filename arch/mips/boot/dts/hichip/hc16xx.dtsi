@@ -39,6 +39,17 @@
 		#interrupt-cells = <1>;
 	};
 
+	intc: intc@18800020 {
+		compatible="hichip,hc16xx-intc";
+		reg = <0x18800020 0x24>;
+
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		interrupt-parent = <&cpuintc>;
+		interrupts = <3>, <2>;
+	};
+
 	uart0: serial@18818300 {
 		compatible = "ns16550";
 		reg = <0x18818300 0x100>;
