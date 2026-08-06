@@ -71,4 +71,53 @@
 
 		status = "disabled";
 	};
+
+	uart1: serial@18818600 {
+		compatible = "ns16550a";
+		reg = <0x18818600 0x100>;
+		reg-io-width = <1>;
+		reg-shift = <0>;
+		fifo-size = <16>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <17>;
+
+		clocks = <&clk HC16XX_CLK_UART1>;
+		clock-names = "baud";
+
+		status = "disabled";
+	};
+
+	uart2: serial@18818800 {
+		compatible = "ns16550a";
+		reg = <0x18818800 0x100>;
+		reg-io-width = <1>;
+		reg-shift = <0>;
+		fifo-size = <16>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <54>;
+
+		clocks = <&clk HC16XX_CLK_UART23>;
+		clock-names = "baud";
+
+		status = "disabled";
+	};
+
+	uart3: serial@18818900 {
+		compatible = "ns16550a";
+		reg = <0x18818900 0x100>;
+		reg-io-width = <1>;
+		reg-shift = <0>;
+		fifo-size = <16>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <55>;
+
+		clocks = <&clk HC16XX_CLK_UART23>;
+		clock-names = "baud";
+
+		status = "disabled";
+	};
+
 };
