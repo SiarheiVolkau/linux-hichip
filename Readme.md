@@ -25,7 +25,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Early console | Done | 8250/16550 compatible |
 | Serial console | Done | Runtime console operational |
 | IRQ controller | Done | |
-| Clock framework | WIP | Initial implementation planned |
+| Clock framework | Partial | Partially implemented will be extended by developing next drivers |
 | Timers | WIP | CP0 timers currently in use |
 | RTC |  |  |
 | Watchdog |  |  |
