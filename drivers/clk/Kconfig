@@ -473,6 +473,13 @@ config COMMON_CLK_FIXED_MMIO
 	help
 	  Support for Memory Mapped IO Fixed clocks
 
+config COMMON_CLK_HC16XX
+	bool "Clock driver for HiChip HC16xx SoC"
+	depends on MACH_HICHIP || COMPILE_TEST
+	depends on COMMON_CLK && OF
+	help
+	  Support for the HiChip HC16xx SoCs clocks.
+
 config COMMON_CLK_K210
 	bool "Clock driver for the Canaan Kendryte K210 SoC"
 	depends on OF && RISCV && SOC_CANAAN_K210
