@@ -56,6 +56,17 @@
 		#clock-cells = <1>;
 	};
 
+	timer@4 {
+		compatible = "hichip,hc16xx-timer";
+		reg = <0x18818a40 0x10>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <22>;
+
+		clocks = <&clk HC16XX_CLK_TIMER>;
+		clock-names = "counting";
+	};
+
 	uart0: serial@18818300 {
 		compatible = "ns16550a";
 		reg = <0x18818300 0x100>;

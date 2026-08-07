@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/timer/hichip,hc16xx-timer.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: HiChip HC16XX System Timer
+
+maintainers:
+  - Siarhei Volkau <lis8215@gmail.com>
+
+description: |
+  System timer found in HiChip HC16XX SoCs.
+
+  The timer provides:
+
+    * a 32-bit free-running counter used as a clocksource and sched_clock;
+    * a compare register generating timer interrupts;
+    * a one-shot clockevent device.
+
+allOf:
+  - $ref: timer/timer.yaml#
+
+properties:
+  compatible:
+    const: hichip,hc16xx-timer
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: counting
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    timer@12040040 {
+        compatible = "hichip,hc16xx-timer";
+        reg = <0x18818a40 0x10>;
+        interrupts = <22>;
+
+        clocks = <&clk HC16XX_CLK_TIMER>;
+        clock-names = "counting";
+    };
+...

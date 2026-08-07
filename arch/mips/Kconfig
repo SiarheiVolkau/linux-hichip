@@ -119,8 +119,6 @@ config MACH_GENERIC_CORE
 
 config MACH_HICHIP
 	bool
-	select CEVT_R4K
-	select CSRC_R4K
 	select SYS_HAS_CPU_MIPS32_R2
 #	select SYS_HAS_EARLY_PRINTK
 	select SYS_SUPPORTS_32BIT_KERNEL

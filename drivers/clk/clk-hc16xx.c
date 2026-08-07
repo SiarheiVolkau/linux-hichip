@@ -208,7 +208,7 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 	{ HC16XX_CLK_I2C0,            "i2c0",           "dummy-bus", HC16XX_CLK_GATE0, 18 },
 	{ HC16XX_CLK_HDMI_TX_PHY,     "hdmi-tx-phy",    "dummy-bus", HC16XX_CLK_GATE0, 19 },
 	{ HC16XX_CLK_WATCHDOG,        "watchdog",       "dummy-bus", HC16XX_CLK_GATE0, 22 },
-	{ HC16XX_CLK_TIMER,           "timer",          "dummy-bus", HC16XX_CLK_GATE0, 23 },
+	{ HC16XX_CLK_TIMER,           "timer",          "sb-27m",    HC16XX_CLK_GATE0, 23 },
 	{ HC16XX_CLK_I2C1,            "i2c1",           "dummy-bus", HC16XX_CLK_GATE0, 25 },
 	{ HC16XX_CLK_I2C2,            "i2c2",           "dummy-bus", HC16XX_CLK_GATE0, 26 },
 	{ HC16XX_CLK_I2C3,            "i2c3",           "dummy-bus", HC16XX_CLK_GATE0, 27 },

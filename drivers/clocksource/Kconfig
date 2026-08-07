@@ -91,6 +91,14 @@ config FTTMR010_TIMER
 	  Enables support for the Faraday Technology timer block
 	  FTTMR010.
 
+config HC16XX_TIMER
+	bool "HiChip HC16XX timer driver"
+	depends on HAS_IOMEM && MACH_HICHIP
+	select CLKSRC_MMIO
+	select TIMER_OF
+	help
+	  Enables support for the HiChip HC16XX SoC timer.
+
 config IXP4XX_TIMER
 	bool "Intel XScale IXP4xx timer driver" if COMPILE_TEST
 	depends on HAS_IOMEM
