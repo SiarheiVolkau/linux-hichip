@@ -309,7 +309,7 @@ static void __init hc16xx_clk_init(struct device_node *np)
 	if (IS_ERR(hosc))
 		panic("failed to get hosc clock\n");
 	hosc_name = __clk_get_name(hosc);
-	clk_put(hosc);
+	clk_prepare_enable(hosc);
 
 	/* Fixed-factor clocks */
 	for (i = 0; i < ARRAY_SIZE(hc16xx_fixed); i++) {
