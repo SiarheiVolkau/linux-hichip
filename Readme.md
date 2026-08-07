@@ -26,7 +26,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Serial console | Done | Runtime console operational |
 | IRQ controller | Done | |
 | Clock framework | Partial | Partially implemented will be extended by developing next drivers |
-| Timers | WIP | CP0 timers currently in use |
+| Timers | Done | |
 | RTC |  |  |
 | Watchdog |  |  |
 | GPIO | TODO |  |
