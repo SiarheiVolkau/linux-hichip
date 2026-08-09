@@ -29,8 +29,8 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Timers | Done | |
 | RTC |  |  |
 | Watchdog |  |  |
-| GPIO | TODO |  |
-| Pin controller | TODO |  |
+| GPIO | WIP |  |
+| Pin controller | Done |  |
 | DMA | TODO |  |
 | SFSPI | TODO |  |
 | SPI master | TODO |  |
