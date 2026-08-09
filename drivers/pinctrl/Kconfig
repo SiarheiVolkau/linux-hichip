@@ -265,6 +265,18 @@ config PINCTRL_EYEQ5
 	  Pin muxing supports two functions for each pin: first is GPIO, second
 	  is pin-dependent. Pin config is about bias & drive strength.
 
+config PINCTRL_HC16XX
+	bool "HiChip HC16XX SoC pinctrl driver"
+	depends on OF
+	depends on MACH_HICHIP || COMPILE_TEST
+	select PINMUX
+	select GENERIC_PINCONF
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCTRL_GROUPS
+	help
+	  Pin controller driver for the HiChip HC16XX SoC. It does both
+	  pin config & pin muxing. It does not handle GPIO.
+
 config PINCTRL_GEMINI
 	bool
 	depends on ARCH_GEMINI

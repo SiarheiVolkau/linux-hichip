@@ -67,6 +67,11 @@
 		clock-names = "counting";
 	};
 
+	pinctrl: pin-controller@188004a0 {
+		compatible = "hichip,hc16xx-pinctrl";
+		reg = <0x188004a0 0x100>;
+	};
+
 	uart0: serial@18818300 {
 		compatible = "ns16550a";
 		reg = <0x18818300 0x100>;

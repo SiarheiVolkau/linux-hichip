@@ -22,6 +22,17 @@
 	};
 };
 
+&pinctrl {
+	uart0_pins: pins-uart0 {
+		function = "uart0";
+		pins = "l12";
+		drive-strength = <2>;
+	};
+};
+
 &uart0 {
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
+
 	status = "okay";
 };
