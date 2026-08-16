@@ -1,0 +1,239 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/input/gpio-serializer-keys.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: GPIO serializer keys
+
+maintainers:
+  - Siarhei Volkau <lis8215@gmail.com>
+
+description: |
+  GPIO-connected keyboard serializer driver.
+
+  The device provides a set of keys whose states are read sequentially
+  through a GPIO-controlled serial interface.
+
+  Two interface variants are supported.
+
+  The 3-wire variant uses separate GPIOs for latch, clock and data.
+
+  The 2-wire variant combines latch and data into a single bidirectional
+  open-drain GPIO. The combined line is driven low by the host during
+  the latch operation and is released while reading the serialized
+  key states. The serializer may drive the line low to report a key
+  state.
+
+properties:
+  compatible:
+    const: gpio-serializer-keys
+
+  clock-gpios:
+    maxItems: 1
+    description:
+      GPIO connected to the serializer clock input.
+
+  data-gpios:
+    maxItems: 1
+    description:
+      GPIO connected to the serializer data output.
+
+      For a 2-wire serializer this is a bidirectional open-drain line
+      shared between the host and the serializer.
+
+  latch-gpios:
+    maxItems: 1
+    description:
+      GPIO connected to the serializer latch input.
+
+      If this property is omitted, the device uses the 2-wire
+      latch/data interface.
+
+  num-clocks:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    description:
+      Number of serial clock positions processed during each scan.
+
+      A clock position does not have to correspond to a key. The
+      serializer may have unused positions, and only positions
+      described by child nodes are reported as input keys.
+
+  poll-interval:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    description:
+      Initial polling interval in milliseconds.
+
+  latch-duration:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    default: 12
+    description:
+      Duration of the latch pulse in microseconds.
+
+  clock-period:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    default: 6
+    description:
+      Delay between consecutive clock operations in microseconds.
+
+  sampling-delay:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    default: 3
+    description:
+      Delay between a clock operation and sampling the data GPIO,
+      in microseconds.
+
+  autorepeat:
+    type: boolean
+    description:
+      Enable input event autorepeat.
+
+  label:
+    description:
+      Human-readable name of the input device.
+
+patternProperties:
+  "^key@[0-9a-f]+$":
+    type: object
+
+    properties:
+      reg:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Zero-based serial clock position associated with this key.
+
+      linux,code:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description:
+          Linux input event code reported when the key changes state.
+
+    required:
+      - reg
+      - linux,code
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - clock-gpios
+  - data-gpios
+  - num-clocks
+  - poll-interval
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/input/input.h>
+
+    keyboard {
+        compatible = "gpio-serializer-keys";
+
+        clock-gpios = <&gpio 11 GPIO_ACTIVE_HIGH>;
+        data-gpios  = <&gpio 12 GPIO_ACTIVE_LOW>;
+        latch-gpios = <&gpio 10 GPIO_ACTIVE_HIGH>;
+
+        num-clocks = <12>;
+        poll-interval = <16>;
+
+        key@0 {
+            reg = <0>;
+            linux,code = <KEY_B>;
+        };
+
+        key@1 {
+            reg = <1>;
+            linux,code = <KEY_Y>;
+        };
+
+        key@2 {
+            reg = <2>;
+            linux,code = <KEY_SELECT>;
+        };
+
+        key@3 {
+            reg = <3>;
+            linux,code = <KEY_START>;
+        };
+
+        key@4 {
+            reg = <4>;
+            linux,code = <KEY_UP>;
+        };
+
+        key@5 {
+            reg = <5>;
+            linux,code = <KEY_DOWN>;
+        };
+
+        key@6 {
+            reg = <6>;
+            linux,code = <KEY_LEFT>;
+        };
+
+        key@7 {
+            reg = <7>;
+            linux,code = <KEY_RIGHT>;
+        };
+
+        key@8 {
+            reg = <8>;
+            linux,code = <KEY_A>;
+        };
+
+        key@9 {
+            reg = <9>;
+            linux,code = <KEY_X>;
+        };
+
+        key@a {
+            reg = <10>;
+            linux,code = <KEY_LEFTSHIFT>;
+        };
+
+        key@b {
+            reg = <11>;
+            linux,code = <KEY_RIGHTSHIFT>;
+        };
+    };
+
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/input/input.h>
+
+    keyboard {
+        compatible = "gpio-serializer-keys";
+
+        clock-gpios = <&gpio 11 GPIO_ACTIVE_LOW>;
+        data-gpios = <&gpio 9 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+        num-clocks = <12>;
+        poll-interval = <16>;
+
+        key@0 {
+            reg = <0>;
+            linux,code = <KEY_B>;
+        };
+
+        key@3 {
+            reg = <3>;
+            linux,code = <KEY_START>;
+        };
+
+        key@7 {
+            reg = <7>;
+            linux,code = <KEY_RIGHT>;
+        };
+
+        key@11 {
+            reg = <11>;
+            linux,code = <KEY_RIGHTSHIFT>;
+        };
+    };

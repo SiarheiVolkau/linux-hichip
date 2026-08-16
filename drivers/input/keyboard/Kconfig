@@ -262,6 +262,22 @@ config KEYBOARD_GPIO_POLLED
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys_polled.
 
+config KEYBOARD_GPIO_SERIALIZER
+	tristate "Buttons behind serializer chips like 74HC165"
+	depends on GPIOLIB
+	help
+	  This driver implements support for buttons connected
+	  to 74HC165-like IC with GPIO based communication
+	  protocol to the device.
+
+	  Say Y here if your device has buttons connected
+	  behind such chips.  Your board-specific
+	  setup logic must also provide a platform device,
+	  with configuration data.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gpio_serializer_keys.
+
 config KEYBOARD_TCA8418
 	tristate "TCA8418 Keypad Support"
 	depends on I2C
