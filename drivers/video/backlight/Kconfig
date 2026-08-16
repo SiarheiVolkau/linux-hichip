@@ -521,6 +521,13 @@ config BACKLIGHT_LED
 	  If you have a LCD backlight adjustable by LED class driver, say Y
 	  to enable this driver.
 
+config BACKLIGHT_TEST
+	tristate "Backlight Driver test tool"
+	depends on OF # && EXPERT
+	help
+	  If you want to test your PWM or Backlight drivers this driver will
+	  help you with that.
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endmenu
