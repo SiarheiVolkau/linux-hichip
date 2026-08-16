@@ -35,8 +35,8 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | SFSPI | TODO |  |
 | SPI master | TODO |  |
 | ADC |  |  |
-| PWM/Backlight | WiP |  |
-| MMC / SD | TODO |  |
+| PWM/Backlight | Done |  |
+| MMC / SD | WiP |  |
 | USB | TODO |  |
 | I2C |  |  |
 | I2S | TODO |  |
@@ -54,7 +54,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | D-Pad, Buttons | Done | Obscure serializer in use for 12 keys, 4 keys are GPIO |
 | Joysticks | Done | Wired in parallel to corresponding buttons |
 | Display | TODO | MIPI-DSI display of unknown model |
-| Backlight | TODO | Likely PWM backlight |
+| Backlight | Done | PWM backlight driver. minimally tested. Need to pick proper PWM points for linearity. |
 | Audio | TODO | External DAC, amplifier, integrated mono speaker, headphone jack |
 | TF card slot | TODO |  |
 ---
