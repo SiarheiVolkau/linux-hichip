@@ -29,13 +29,13 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Timers | Done | |
 | RTC |  |  |
 | Watchdog |  |  |
-| GPIO | WIP |  |
+| GPIO | Done |  |
 | Pin controller | Done |  |
 | DMA | TODO |  |
 | SFSPI | TODO |  |
 | SPI master | TODO |  |
 | ADC |  |  |
-| PWM/Backlight | TODO |  |
+| PWM/Backlight | WiP |  |
 | MMC / SD | TODO |  |
 | USB | TODO |  |
 | I2C |  |  |
@@ -51,8 +51,8 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Charging | Done | Fully hardware solution |
 | Charging and battery status | TODO |  |
 | RGB LED | N/A | Can't be controlled in software |
-| D-Pad, Buttons | TODO | Obscure serializer in use for some keys, rest are GPIO |
-| Joysticks | TODO | Likely not analiog sticks wired in parallel to buttons |
+| D-Pad, Buttons | Done | Obscure serializer in use for 12 keys, 4 keys are GPIO |
+| Joysticks | Done | Wired in parallel to corresponding buttons |
 | Display | TODO | MIPI-DSI display of unknown model |
 | Backlight | TODO | Likely PWM backlight |
 | Audio | TODO | External DAC, amplifier, integrated mono speaker, headphone jack |
