@@ -72,6 +72,23 @@
 		reg = <0x188004a0 0x100>;
 	};
 
+	gpio: gpio-controller@18800044 {
+		compatible = "hichip,hc16xx-gpio";
+		reg =   <0x18800044 0x1c>, <0x188000c4 0x1c>,
+                        <0x188000e4 0x1c>, <0x18800344 0x1c>;
+                reg-names = "left", "bottom", "right", "top";
+		gpio-ranges = <&pinctrl 0 0 128>;
+
+		interrupts = <0>;
+		interrupt-parent=<&intc>;
+
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
 	uart0: serial@18818300 {
 		compatible = "ns16550a";
 		reg = <0x18818300 0x100>;

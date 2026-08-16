@@ -387,6 +387,15 @@ config GPIO_GRGPIO
 	  Select this to support Aeroflex Gaisler GRGPIO cores from the GRLIB
 	  VHDL IP core library.
 
+config GPIO_HC16XX
+	tristate "HiChip HC16xx GPIO controller driver"
+	depends on MACH_HICHIP || COMPILE_TEST
+	select GPIO_GENERIC
+	select GPIOLIB_IRQCHIP
+	help
+	  Say Y or M here to build support for the HiChip HC16xx GPIO controller
+	  driver GPIO block.
+
 config GPIO_HISI
 	tristate "HiSilicon GPIO controller driver"
 	depends on ARM64 || COMPILE_TEST
