@@ -1322,11 +1322,29 @@ static int hc16xx_set_mux(struct pinctrl_dev *pctldev,
 	return hc16xx_pin_set_mux(pctl, group, mux);
 }
 
+static int hc16xx_gpio_request_enable(struct pinctrl_dev *pctldev,
+				      struct pinctrl_gpio_range *range,
+				      unsigned int offset)
+{
+	struct hc16xx_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	int mux;
+
+	if (offset >= ARRAY_SIZE(hc16xx_pins))
+		return -EINVAL;
+
+	mux = hc16xx_find_mux(HC16XX_FUNC_GPIO, offset);
+	if (mux < 0)
+		return mux;
+
+	return hc16xx_pin_set_mux(pctl, offset, mux);
+}
+
 static const struct pinmux_ops hc16xx_pinmux_ops = {
 	.get_functions_count	= pinmux_generic_get_function_count,
 	.get_function_name	= pinmux_generic_get_function_name,
 	.get_function_groups	= pinmux_generic_get_function_groups,
 	.set_mux		= hc16xx_set_mux,
+	.gpio_request_enable	= hc16xx_gpio_request_enable,
 	.strict			= true,
 };
 
