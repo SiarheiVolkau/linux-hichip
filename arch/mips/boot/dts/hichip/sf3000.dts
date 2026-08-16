@@ -113,6 +113,17 @@
 			linux,code = <KEY_RIGHT>;
 		};
 	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 20000 0>;
+
+		pinctrl-0 = <&backlight_pins>;
+		pinctrl-names = "default";
+
+		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
+		default-brightness-level = <0>;
+	};
 };
 
 &pinctrl {
@@ -120,6 +131,12 @@
 		function = "uart0";
 		pins = "l12";
 		drive-strength = <2>;
+	};
+
+	backlight_pins: pins-bl {
+		function = "pwm0";
+		pins = "l00";
+		drive-strength = <1>;
 	};
 };
 
