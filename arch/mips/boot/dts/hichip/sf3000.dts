@@ -3,6 +3,9 @@
 
 #include "hc16xx.dtsi"
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+
 / {
 	compatible = "datafrog,sf3000", "noname,sf3000";
 	model = "SF3000";
@@ -19,6 +22,96 @@
 	memory {
 		device_type = "memory";
 		reg = <0x0 0x10000000>;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		autorepeat;
+
+		key-l2 {
+			label = "L2 shoulder button";
+			linux,code = <KEY_PAGEUP>;
+			gpios = <&gpio 7 GPIO_ACTIVE_LOW>;
+		};
+		key-r2 {
+			label = "R2 shoulder button";
+			linux,code = <KEY_PAGEDOWN>;
+			gpios = <&gpio 11 GPIO_ACTIVE_LOW>;
+		};
+#if 0
+		key-voldn {
+			label = "Volume- button";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+		};
+#endif
+		key-volup {
+			label = "Volume+ button";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio 13 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	serializer-keys {
+		compatible = "gpio-serializer-keys";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		clock-gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
+		data-gpios  = <&gpio 9 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+		num-clocks  = <12>;
+
+		autorepeat;
+		poll-interval = <16>;
+
+		key-l1 {
+			reg = <0>;
+			linux,code = <KEY_TAB>;
+		};
+		key-x {
+			reg = <1>;
+			linux,code = <KEY_SPACE>;
+		};
+		key-y {
+			reg = <2>;
+			linux,code = <KEY_LEFTSHIFT>;
+		};
+		key-r1 {
+			reg = <3>;
+			linux,code = <KEY_BACKSPACE>;
+		};
+		key-b {
+			reg = <4>;
+			linux,code = <KEY_LEFTALT>;
+		};
+		key-a {
+			reg = <5>;
+			linux,code = <KEY_LEFTCTRL>;
+		};
+		key-select {
+			reg = <6>;
+			linux,code = <KEY_ESC>;
+		};
+		key-start {
+			reg = <7>;
+			linux,code = <KEY_ENTER>;
+		};
+		key-up {
+			reg = <8>;
+			linux,code = <KEY_UP>;
+		};
+		key-down {
+			reg = <9>;
+			linux,code = <KEY_DOWN>;
+		};
+		key-left {
+			reg = <10>;
+			linux,code = <KEY_LEFT>;
+		};
+		key-right {
+			reg = <11>;
+			linux,code = <KEY_RIGHT>;
+		};
 	};
 };
 
