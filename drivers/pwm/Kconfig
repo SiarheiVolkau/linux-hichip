@@ -282,6 +282,16 @@ config PWM_GPIO
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-gpio.
 
+config PWM_HC16XX
+	tristate "HiChip HC16xx PWM support"
+	depends on MACH_HICHIP || COMPILE_TEST
+	depends on HAS_IOMEM
+	help
+	  Generic PWM framework driver for HiChip HC16xx SoCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-hc16xx.
+
 config PWM_HIBVT
 	tristate "HiSilicon BVT PWM support"
 	depends on ARCH_HISI || COMPILE_TEST
