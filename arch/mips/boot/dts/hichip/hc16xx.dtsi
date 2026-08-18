@@ -98,6 +98,21 @@
 		#interrupt-cells = <2>;
 	};
 
+	mmc: dw-mmc@1884c000 {
+		compatible = "snps,dw-mshc";
+		reg = <0x1884c000 0x2000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupts = <10>;
+		interrupt-parent=<&intc>;
+
+		clocks = <&clk HC16XX_CLK_SDMMC>, <&clk HC16XX_CLK_SDMMC_CARD>;
+		clock-names = "biu", "ciu";
+
+		status = "disabled";
+	};
+
 	uart0: serial@18818300 {
 		compatible = "ns16550a";
 		reg = <0x18818300 0x100>;
