@@ -15,7 +15,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p1 rw rootwait";
+		bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p1 rw rootwait init=/mininit-syspart mem=192M";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -126,9 +126,23 @@
 	};
 
 	backlight-test {
-		compatible = "backlight-test";
+		compatible = "backlight-test-disabled";
 		backlight = <&backlight>;
 	};
+};
+
+&mmc {
+	pinctrl-0 = <&sdmmc_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	bus-width = <4>;
+
+	no-1-8-v;
+	max-frequency = <25000000>;
+
+	broken-cd;
+	card-detect-delay = <200>;
 };
 
 &pinctrl {
@@ -142,6 +156,12 @@
 		function = "pwm0";
 		pins = "l00";
 		drive-strength = <1>;
+	};
+
+	sdmmc_pins: pins-sdmmc {
+		function = "sdmmc";
+		pins = "t00", "t01", "t02", "t03", "t04", "t05";
+		drive-strength = <16>;
 	};
 };
 
