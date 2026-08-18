@@ -15,6 +15,7 @@
 #define HC16XX_CLK_GATE0      0x00
 #define HC16XX_CLK_GATE1      0x04
 #define HC16XX_CLK_MCLK       0x14
+#define HC16XX_CLK_SEL_REG1   0x1c
 
 /* internal clocks */
 #define HC16XX_CLK_F1M843 (HC16XX_CLK_NR_CLKS +  0)
@@ -38,6 +39,7 @@ struct hc16xx_clk {
 	spinlock_t lock;
 
 	struct hc16xx_cpuclk *cpu;
+	struct hc16xx_mmcclk *mmc;
 	struct clk_hw_onecell_data *hw_data;
 };
 
@@ -65,12 +67,12 @@ struct hc16xx_cpuclk {
 #define to_hc16xx_cpuclk(_hw) \
 	container_of(_hw, struct hc16xx_cpuclk, hw)
 
-struct hc16xx_cpuclk_rate {
+struct hc16xx_clksel_rate {
 	unsigned long rate;
 	u8 mux;
 };
 
-static const struct hc16xx_cpuclk_rate hc16xx_cpuclk_rates[] = {
+static const struct hc16xx_clksel_rate hc16xx_cpuclk_rates[] = {
 	{  198000000, 3 },
 	{  297000000, 2 },
 	{  396000000, 1 },
@@ -99,7 +101,7 @@ static unsigned long hc16xx_cpuclk_recalc_rate(struct clk_hw *hw,
 static int hc16xx_cpuclk_determine_rate(struct clk_hw *hw,
 					struct clk_rate_request *req)
 {
-	const struct hc16xx_cpuclk_rate *best = NULL;
+	const struct hc16xx_clksel_rate *best = NULL;
 	unsigned long best_diff = ULONG_MAX;
 	int i;
 
@@ -156,12 +158,108 @@ static const struct clk_ops hc16xx_cpuclk_ops = {
 	.set_rate       = hc16xx_cpuclk_set_rate,
 };
 
+struct hc16xx_mmcclk {
+	struct clk_hw hw;
+	struct hc16xx_clk *controller;
+};
+
+#define to_hc16xx_mmcclk(_hw) \
+	container_of(_hw, struct hc16xx_mmcclk, hw)
+
+
+static const struct hc16xx_clksel_rate hc16xx_mmcclk_rates[] = {
+	{  198000000, 3 },
+	{  148500000, 2 },
+	{   99000000, 1 },
+	{   49500000, 0 },
+};
+
+static unsigned long hc16xx_mmcclk_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct hc16xx_mmcclk *mmcclk = to_hc16xx_mmcclk(hw);
+	u32 mux;
+	int i;
+
+	mux = readl(mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
+	mux = (mux >> 20) & 0x03;
+
+	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++)
+		if (hc16xx_mmcclk_rates[i].mux == mux)
+			return hc16xx_mmcclk_rates[i].rate;
+
+	return 0;
+}
+
+static int hc16xx_mmcclk_determine_rate(struct clk_hw *hw,
+					struct clk_rate_request *req)
+{
+	const struct hc16xx_clksel_rate *best = NULL;
+	unsigned long best_diff = ULONG_MAX;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++) {
+		unsigned long r = hc16xx_mmcclk_rates[i].rate;
+		unsigned long diff = abs_diff(r, req->rate);
+
+		if (!best || diff < best_diff) {
+			best = &hc16xx_mmcclk_rates[i];
+			best_diff = diff;
+		}
+	}
+
+	if (!best)
+		return -EINVAL;
+
+	req->rate = best->rate;
+	return 0;
+}
+
+static int hc16xx_mmcclk_set_rate(struct clk_hw *hw,
+				  unsigned long rate,
+				  unsigned long parent_rate)
+{
+	struct hc16xx_mmcclk *mmcclk = to_hc16xx_mmcclk(hw);
+	unsigned long flags;
+	u32 val;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++) {
+		if (hc16xx_mmcclk_rates[i].rate == rate)
+			break;
+	}
+
+	if (i == ARRAY_SIZE(hc16xx_mmcclk_rates))
+		return -EINVAL;
+
+	spin_lock_irqsave(&mmcclk->controller->lock, flags);
+
+	val = readl(mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
+	val &= ~GENMASK(21, 20);
+	val |= hc16xx_mmcclk_rates[i].mux << 20;
+	val |= BIT(1); /* Apply new clock source bit */
+	writel(val, mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
+
+	spin_unlock_irqrestore(&mmcclk->controller->lock, flags);
+
+	return 0;
+}
+
+static const struct clk_ops hc16xx_mmcclk_ops = {
+	.recalc_rate    = hc16xx_mmcclk_recalc_rate,
+	.determine_rate = hc16xx_mmcclk_determine_rate,
+	.set_rate       = hc16xx_mmcclk_set_rate,
+};
+
+
 /* mostly guessing by names */
 static const struct hc16xx_fixed_factor hc16xx_fixed[] = {
 	/*       id           name     parent  mult,   div */
 	{ HC16XX_CLK_F24M,   "f24m",   "hosc",    1,     1 },
 	{ HC16XX_CLK_F12M,   "f12m",   "f24m",    1,     2 },
 	{ HC16XX_CLK_F108M,  "f108m",  "sb-apb",  9,     2 },
+	/* f1m843 actual mul/div aren't known, set these to exact
+	 * match expected baudrate with reported by UART driver */
 	{ HC16XX_CLK_F1M843, "f1m843", "sb-108m", 32, 1875,},
 	{ HC16XX_CLK_F27M,   "f27m",   "f108m",   1,     4 },
 	{ HC16XX_CLK_F198M,  "f198m",  "f1188m",  1,     6 },
@@ -191,6 +289,8 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 	{ HC16XX_CLK_UART23,          "uart2-3",        "sb-1843k",  HC16XX_CLK_GATE1, 11 },
 
 	{ HC16XX_CLK_SFSPI,           "sfspi",          "dummy-bus", HC16XX_CLK_GATE0,  0 },
+	/* disabling SFSPI hangs the system when SDMMC is in use,
+	 * so set as parent but might not be actual parent though */
 	{ HC16XX_CLK_SDMMC,           "sdmmc",          "dummy-bus", HC16XX_CLK_GATE0,  1 },
 	{ HC16XX_CLK_NAND,            "nand",           "dummy-bus", HC16XX_CLK_GATE0,  2 },
 	{ HC16XX_CLK_DESCRAMBLE,      "descramble",     "dummy-bus", HC16XX_CLK_GATE0,  3 },
@@ -252,7 +352,7 @@ static inline const char* hc16xx_parent_name(const char *name, const char *hosc)
 	return strcmp(name, "hosc") != 0 ? name : hosc;
 }
 
-static int hc16xx_mcpu_clk_register(struct hc16xx_clk *priv)
+static int __init hc16xx_mcpu_clk_register(struct hc16xx_clk *priv)
 {
 	struct hc16xx_cpuclk *cpuclk;
 	struct clk_init_data init = { 0 };
@@ -277,6 +377,34 @@ static int hc16xx_mcpu_clk_register(struct hc16xx_clk *priv)
 		return ret;
 
 	priv->hw_data->hws[HC16XX_CLK_MCPU] = &cpuclk->hw;
+	return 0;
+}
+
+static int __init hc16xx_mmc_card_clk_register(struct hc16xx_clk *priv)
+{
+	struct hc16xx_mmcclk *mmcclk;
+	struct clk_init_data init = { 0 };
+	int ret;
+
+	mmcclk = kzalloc(sizeof(*mmcclk), GFP_KERNEL);
+	if (!mmcclk)
+		return -ENOMEM;
+
+	init.name = "sdmmc-card";
+	init.ops = &hc16xx_mmcclk_ops;
+	init.flags = 0;
+	init.num_parents = 0;
+	init.parent_names = NULL;
+
+	mmcclk->hw.init = &init;
+	mmcclk->controller = priv;
+	priv->mmc = mmcclk;
+
+	ret = clk_hw_register(NULL, &mmcclk->hw);
+	if (ret)
+		return ret;
+
+	priv->hw_data->hws[HC16XX_CLK_SDMMC_CARD] = &mmcclk->hw;
 	return 0;
 }
 
@@ -346,6 +474,10 @@ static void __init hc16xx_clk_init(struct device_node *np)
 	ret = hc16xx_mcpu_clk_register(priv);
 	if (ret)
 		panic("failed to register cpu clock %d\n", ret);
+
+	ret = hc16xx_mmc_card_clk_register(priv);
+	if (ret)
+		panic("failed to register sdmmc-card clock %d\n", ret);
 
 	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get, priv->hw_data);
 	if (ret)

@@ -15,10 +15,11 @@
 #define HC16XX_CLK_DRAM_PLL           3
 
 /*
- * CPU clocks
+ * Complex clocks
  */
 #define HC16XX_CLK_MCPU               10
 #define HC16XX_CLK_SCPU               11
+#define HC16XX_CLK_SDMMC_CARD         12
 
 /*
  * Gate clocks
