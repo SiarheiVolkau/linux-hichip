@@ -36,8 +36,8 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | SPI master | TODO |  |
 | ADC |  |  |
 | PWM/Backlight | Done |  |
-| MMC / SD | WiP |  |
-| USB | TODO |  |
+| MMC / SD | Partial | No high-speed modes yet |
+| USB | WiP |  |
 | I2C |  |  |
 | I2S | TODO |  |
 | Display Controller / DE | TODO |  |
@@ -56,7 +56,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Display | TODO | MIPI-DSI display of unknown model |
 | Backlight | Done | PWM backlight driver. minimally tested. Need to pick proper PWM points for linearity. |
 | Audio | TODO | External DAC, amplifier, integrated mono speaker, headphone jack |
-| TF card slot | TODO |  |
+| TF card slot | Done |  |
 ---
 
 ## Development goals
