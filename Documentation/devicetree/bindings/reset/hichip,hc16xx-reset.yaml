@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/hichip,hc16xx-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: HiChip HC16XX Reset Controller
+
+maintainers:
+  - Siarhei Volkau <lis8215@gmail.com>
+
+description: |
+  The HiChip HC16XX reset controller provides reset control for
+  various SoC peripherals.
+
+  Reset lines are implemented as active-high bits in two system
+  reset registers. A reset operation asserts the corresponding bit,
+  waits for the peripheral-specific reset duration, and then
+  deasserts the bit.
+
+  The reset controller uses one reset cell containing the reset ID
+  defined in dt-bindings/reset/hichip,hc16xx-reset.h.
+
+properties:
+  compatible:
+    const: hichip,hc16xx-reset
+
+  reg:
+    maxItems: 1
+
+  "#reset-cells":
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - "#reset-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    reset: reset-controller@18800080 {
+        compatible = "hichip,hc16xx-reset";
+        reg = <0x18800080 0x08>;
+        #reset-cells = <1>;
+    };

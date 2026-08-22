@@ -2,6 +2,7 @@
 /dts-v1/;
 
 #include <dt-bindings/clock/hichip,hc16xx-clock.h>
+#include <dt-bindings/reset/hichip,hc16xx-reset.h>
 
 / {
 	compatible = "hichip,hc16xx";
@@ -54,6 +55,13 @@
 		clock-names = "hosc";
 
 		#clock-cells = <1>;
+	};
+
+	reset: reset-controller@18800080 {
+		compatible = "hichip,hc16xx-reset";
+		reg = <0x18800080 0x08>;
+
+		#reset-cells = <1>;
 	};
 
 	timer@4 {
@@ -126,6 +134,8 @@
 		clocks = <&clk HC16XX_CLK_UART0>;
 		clock-names = "baud";
 
+		resets = <&reset HC16XX_UART0_RESET>;
+
 		status = "disabled";
 	};
 
@@ -141,6 +151,8 @@
 
 		clocks = <&clk HC16XX_CLK_UART1>;
 		clock-names = "baud";
+
+		resets = <&reset HC16XX_UART1_RESET>;
 
 		status = "disabled";
 	};
@@ -158,6 +170,8 @@
 		clocks = <&clk HC16XX_CLK_UART23>;
 		clock-names = "baud";
 
+		resets = <&reset HC16XX_UART2_RESET>;
+
 		status = "disabled";
 	};
 
@@ -173,6 +187,8 @@
 
 		clocks = <&clk HC16XX_CLK_UART23>;
 		clock-names = "baud";
+
+		resets = <&reset HC16XX_UART3_RESET>;
 
 		status = "disabled";
 	};

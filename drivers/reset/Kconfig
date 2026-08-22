@@ -107,6 +107,13 @@ config RESET_GPIO
 
 	  If compiled as module, it will be called reset-gpio.
 
+config RESET_HC16XX
+	bool "HiChip HC16XX Reset Driver"
+	depends on HAS_IOMEM
+	depends on MACH_HICHIP || COMPILE_TEST
+	help
+	  This enables the reset controller driver for HC16XX SoC.
+
 config RESET_HSDK
 	bool "Synopsys HSDK Reset Driver"
 	depends on HAS_IOMEM
