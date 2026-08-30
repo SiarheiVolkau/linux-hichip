@@ -31,8 +31,10 @@
 #define HC16XX_CLK_F800M  (HC16XX_CLK_NR_CLKS + 10)
 #define HC16XX_CLK_F900M  (HC16XX_CLK_NR_CLKS + 11)
 #define HC16XX_CLK_F1188M (HC16XX_CLK_NR_CLKS + 12)
+#define HC16XX_CLK_USB0_SEL (HC16XX_CLK_NR_CLKS + 13)
+#define HC16XX_CLK_USB1_SEL (HC16XX_CLK_NR_CLKS + 14)
 
-#define HC16XX_CLKS_NUM   (HC16XX_CLK_NR_CLKS + 13)
+#define HC16XX_CLKS_NUM     (HC16XX_CLK_NR_CLKS + 15)
 
 struct hc16xx_clk {
 	void __iomem *base;
@@ -339,8 +341,8 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 	{ HC16XX_CLK_DDP_SP0,         "ddp-sp0",        "dummy-bus", HC16XX_CLK_GATE1, 21 },
 	{ HC16XX_CLK_TSDMA,           "tsdma",          "dummy-bus", HC16XX_CLK_GATE1, 22 },
 	{ HC16XX_CLK_JENC,            "jenc",           "dummy-bus", HC16XX_CLK_GATE1, 23 },
-	{ HC16XX_CLK_USB0,            "usb0",           "dummy-bus", HC16XX_CLK_GATE1, 24 },
-	{ HC16XX_CLK_USB1,            "usb1",           "dummy-bus", HC16XX_CLK_GATE1, 25 },
+	{ HC16XX_CLK_USB0,            "usb0",           "usb0-sel",  HC16XX_CLK_GATE1, 24 },
+	{ HC16XX_CLK_USB1,            "usb1",           "usb1-sel",  HC16XX_CLK_GATE1, 25 },
 	{ HC16XX_CLK_HDMI_TX_PHY_SYS, "hdmi-tx-phy-sys","dummy-bus", HC16XX_CLK_GATE1, 27 },
 	{ HC16XX_CLK_MIPI,            "mipi",           "dummy-bus", HC16XX_CLK_GATE1, 28 },
 	{ HC16XX_CLK_BOOTROM,         "bootrom",        "dummy-bus", HC16XX_CLK_GATE1, 29 },
@@ -405,6 +407,34 @@ static int __init hc16xx_mmc_card_clk_register(struct hc16xx_clk *priv)
 		return ret;
 
 	priv->hw_data->hws[HC16XX_CLK_SDMMC_CARD] = &mmcclk->hw;
+	return 0;
+}
+
+static int __init hc16xx_register_usb_clks(struct hc16xx_clk *priv)
+{
+	struct clk_hw *hw;
+
+	/* We only know that when the bit is set
+	 * the clock lowered down to 99MHz.
+	 * Clock rate for bit 0 is pure guessing. */
+	hw = clk_hw_register_divider(NULL,
+				     "usb0-sel", "f198m", 0,
+				     priv->base + HC16XX_CLK_SEL_REG1,
+				     12, 1, 0, &priv->lock);
+	if (IS_ERR(hw))
+		return PTR_ERR(hw);
+
+	priv->hw_data->hws[HC16XX_CLK_USB0_SEL] = hw;
+
+	hw = clk_hw_register_divider(NULL,
+				     "usb1-sel", "f198m", 0,
+				     priv->base + HC16XX_CLK_SEL_REG1,
+				     13, 1, 0, &priv->lock);
+	if (IS_ERR(hw))
+		return PTR_ERR(hw);
+
+	priv->hw_data->hws[HC16XX_CLK_USB1_SEL] = hw;
+
 	return 0;
 }
 
@@ -478,6 +508,10 @@ static void __init hc16xx_clk_init(struct device_node *np)
 	ret = hc16xx_mmc_card_clk_register(priv);
 	if (ret)
 		panic("failed to register sdmmc-card clock %d\n", ret);
+
+	ret = hc16xx_register_usb_clks(priv);
+	if (ret)
+		panic("failed to register usb clocks %d\n", ret);
 
 	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get, priv->hw_data);
 	if (ret)
