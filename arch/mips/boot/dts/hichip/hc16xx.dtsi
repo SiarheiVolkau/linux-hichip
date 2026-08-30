@@ -193,6 +193,38 @@
 		status = "disabled";
 	};
 
+	usb0: usb@18844000 {
+		compatible = "hichip,hc16xx-musb";
+		reg = <0x18844000 0x1000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <53>, <52>;
+		interrupt-names = "mc", "dma";
+
+		clocks = <&clk HC16XX_CLK_USB0>;
+		resets = <&reset HC16XX_USB0_RESET>;
+		phys   = <&usb0phy>;
+
+		dr_mode = "peripheral";
+		status = "disabled";
+	};
+
+	usb1: usb@18850000 {
+		compatible = "hichip,hc16xx-musb";
+		reg = <0x18850000 0x1000>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <51>, <50>;
+		interrupt-names = "mc", "dma";
+
+		clocks = <&clk HC16XX_CLK_USB1>;
+		resets = <&reset HC16XX_USB1_RESET>;
+		phys   = <&usb1phy>;
+
+		dr_mode = "peripheral";
+		status = "disabled";
+	};
+
 	usb0phy: phy@18845000 {
 		compatible = "hichip,hc16xx-usb-phy";
 		reg = <0x18845000 0x24>;
