@@ -193,4 +193,15 @@
 		status = "disabled";
 	};
 
+	usb0phy: phy@18845000 {
+		compatible = "hichip,hc16xx-usb-phy";
+		reg = <0x18845000 0x24>;
+		#phy-cells = <0>;
+	};
+
+	usb1phy: phy@18845100 {
+		compatible = "hichip,hc16xx-usb-phy";
+		reg = <0x18845100 0x24>;
+		#phy-cells = <0>;
+	};
 };

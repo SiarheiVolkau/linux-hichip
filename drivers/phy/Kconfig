@@ -102,6 +102,13 @@ config PHY_GOOGLE_USB
 	  both of which are integrated with the DWC3 USB DRD controller.
 	  This driver currently supports USB high-speed.
 
+config PHY_HICHIP_USB
+	tristate "HiChip HC16XX SoC USB PHY driver"
+	select GENERIC_PHY
+	depends on MACH_HICHIP && OF
+	help
+	  Enable support for the USB PHY on HiChip HC16xx SoC.
+
 config USB_LGM_PHY
 	tristate "INTEL Lightning Mountain USB PHY Driver"
 	depends on USB_SUPPORT
