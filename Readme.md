@@ -37,10 +37,10 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | ADC |  |  |
 | PWM/Backlight | Done |  |
 | MMC / SD | Partial | No high-speed modes yet |
-| USB | WiP |  |
+| USB | Partial | No DMA, no OTG, no Host mode |
 | I2C |  |  |
 | I2S | TODO |  |
-| Display Controller / DE | TODO |  |
+| Display Controller / DE | WiP |  |
 | MIPI-DSI | TODO |  |
 | HDMI |  |  |
 | Multimedia IPs |  | H264,JPEG decoders etc. |
