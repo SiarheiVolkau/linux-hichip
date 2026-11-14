@@ -13,6 +13,7 @@
 #include <linux/irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include <linux/slab.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
@@ -47,6 +48,10 @@ int dw_mci_pltfm_register(struct platform_device *pdev,
 	host->regs = devm_platform_get_and_ioremap_resource(pdev, 0, &regs);
 	if (IS_ERR(host->regs))
 		return PTR_ERR(host->regs);
+
+	host->rstc = devm_reset_control_get_optional_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(host->rstc))
+		return PTR_ERR(host->rstc);
 
 	/* Get registers' physical base address */
 	host->phy_regs = regs->start;
