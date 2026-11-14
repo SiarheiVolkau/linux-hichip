@@ -85,6 +85,7 @@
 
 		reg = <0x18818410 0x24>;
 		clocks = <&clk HC16XX_CLK_SB_27M>;
+		resets = <&reset HC16XX_PWM_RESET>;
 
 		#pwm-cells = <3>;
 	};
@@ -117,6 +118,7 @@
 
 		clocks = <&clk HC16XX_CLK_SDMMC>, <&clk HC16XX_CLK_SDMMC_CARD>;
 		clock-names = "biu", "ciu";
+		resets = <&reset HC16XX_SDMMC_RESET>;
 
 		status = "disabled";
 	};
