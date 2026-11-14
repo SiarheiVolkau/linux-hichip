@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/reset.h>
 
 #define HC16XX_PWM_NUM_CHANNELS 6
 #define HC16XX_PWM_COUNTER_MAX  GENMASK(15, 0)
@@ -29,6 +30,7 @@ struct hc16xx_pwm {
 	void __iomem *base;
 
 	struct clk *clk;
+	struct reset_control *rst;
 	u32 enabled_bits;
 	u32 pwm0_savestate;
 };
@@ -241,6 +243,10 @@ static int hc16xx_pwm_probe(struct platform_device *pdev)
 	priv->clk = devm_clk_get_enabled(&pdev->dev, NULL);
 	if (IS_ERR(priv->clk))
 		return PTR_ERR(priv->clk);
+
+	priv->rst = devm_reset_control_get_optional_exclusive_deasserted(&pdev->dev, NULL);
+	if (IS_ERR(priv->rst))
+		return PTR_ERR(priv->rst);
 
 	chip->ops = &hc16xx_pwm_ops;
 	chip->atomic = true;
