@@ -100,6 +100,18 @@ config DRM_I2C_NXP_TDA998X
 	help
 	  Support for NXP Semiconductors TDA998X HDMI encoders.
 
+config DRM_HICHIP_MIPI_DSI
+	tristate "HiChip HC16xx glue for Synopsys DW MIPI DSI"
+	depends on OF
+	depends on MACH_HICHIP || COMPILE_TEST
+	select DRM_DW_MIPI_DSI
+	select GENERIC_PHY
+	select GENERIC_PHY_MIPI_DPHY
+	select PHY_HICHIP_INNO_DSIDPHY
+	help
+	  Choose this to enable MIPI DSI controller found in HiChip HC16xx
+	  SoCs.
+
 config DRM_INNO_HDMI
 	tristate
 	select DRM_BRIDGE_CONNECTOR
