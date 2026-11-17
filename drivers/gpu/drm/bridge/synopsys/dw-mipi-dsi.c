@@ -6,6 +6,9 @@
  * Modified by Philippe Cornu <philippe.cornu@st.com>
  * This generic Synopsys DesignWare MIPI DSI host driver is based on the
  * Rockchip version from rockchip/dw-mipi-dsi.c with phy & bridge APIs.
+ *
+ * Modified by Siarhei Volkau <lis8215@gmail.com>
+ * To add support for old/outdated IP version v1.01.
  */
 
 #include <linux/clk.h>
@@ -32,6 +35,7 @@
 #include <drm/drm_of.h>
 #include <drm/drm_print.h>
 
+#define HWVER_101			0x31303100	/* IP version 1.01 */
 #define HWVER_131			0x31333100	/* IP version 1.31 */
 
 #define DSI_VERSION			0x00
@@ -41,9 +45,26 @@
 #define RESET				0
 #define POWERUP				BIT(0)
 
-#define DSI_CLKMGR_CFG			0x08
+#define DSI_CLKMGR_CFG			0x08  /* same for v101 */
 #define TO_CLK_DIVISION(div)		(((div) & 0xff) << 8)
 #define TX_ESC_CLK_DIVISION(div)	((div) & 0xff)
+
+#define DSI_DPI_CONFIG_V101		0x0c
+#define DPI_VCID_MASK_V101		GENMASK(1, 0)
+#define DPI_COLOR_CODING_MASK_V101	GENMASK(4, 2)
+#define DPI_COLOR_CODING_16BIT_1_V101	(0x0 << 2)
+#define DPI_COLOR_CODING_16BIT_2_V101	(0x1 << 2)
+#define DPI_COLOR_CODING_16BIT_3_V101	(0x2 << 2)
+#define DPI_COLOR_CODING_18BIT_1_V101	(0x3 << 2)
+#define DPI_COLOR_CODING_18BIT_2_V101	(0x4 << 2)
+#define DPI_COLOR_CODING_24BIT_V101	(0x5 << 2)
+/* Bits below are guessed */
+#define LOOSELY18_EN_V101		BIT(10)
+#define COLORM_ACTIVE_LOW_V101		BIT(9)
+#define SHUTD_ACTIVE_LOW_V101		BIT(8)
+#define HSYNC_ACTIVE_LOW_V101		BIT(7)
+#define VSYNC_ACTIVE_LOW_V101		BIT(6)
+#define DATAEN_ACTIVE_LOW_V101		BIT(5)
 
 #define DSI_DPI_VCID			0x0c
 #define DPI_VCID(vcid)			((vcid) & 0x3)
@@ -64,15 +85,18 @@
 #define VSYNC_ACTIVE_LOW		BIT(1)
 #define DATAEN_ACTIVE_LOW		BIT(0)
 
+#define DSI_DPI_LP_CMD_TIM_V101		0x14
 #define DSI_DPI_LP_CMD_TIM		0x18
 #define OUTVACT_LPCMD_TIME(p)		(((p) & 0xff) << 16)
 #define INVACT_LPCMD_TIME(p)		((p) & 0xff)
 
+#define DSI_DBI_CFG_V101		0x10 /* combines all DBI regs below */
 #define DSI_DBI_VCID			0x1c
 #define DSI_DBI_CFG			0x20
 #define DSI_DBI_PARTITIONING_EN		0x24
 #define DSI_DBI_CMDSIZE			0x28
 
+#define DSI_PCKHDL_CFG_V101		0x18
 #define DSI_PCKHDL_CFG			0x2c
 #define CRC_RX_EN			BIT(4)
 #define ECC_RX_EN			BIT(3)
@@ -81,6 +105,18 @@
 #define EOTP_TX_EN			BIT(0)
 
 #define DSI_GEN_VCID			0x30
+
+#define DSI_MODE_CFG_V101		0x1c /* combines MODE_CFG and VID_MODE_CFG */
+#define DSI_MODE_MASK_V101		BIT(0)
+#define ENABLE_VIDEO_MODE_V101		BIT(0)
+#define ENABLE_CMD_MODE_V101		0
+#define ENABLE_LOW_POWER_V101				(0x7f << 3)
+#define ENABLE_LOW_POWER_MASK_V101			(0x7f << 3)
+#define VID_MODE_TYPE_NON_BURST_SYNC_PULSES_V101	(0x0 << 1)
+#define VID_MODE_TYPE_NON_BURST_SYNC_EVENTS_V101	(0x1 << 1)
+#define VID_MODE_TYPE_BURST_V101			(0x2 << 1)
+#define VID_MODE_TYPE_MASK_V101				GENMASK(2, 1)
+/* No VPG detected, ENABLE_LOW_POWER_CMD not detected */
 
 #define DSI_MODE_CFG			0x34
 #define ENABLE_VIDEO_MODE		0
@@ -98,6 +134,12 @@
 #define VID_MODE_VPG_MODE		BIT(20)
 #define VID_MODE_VPG_HORIZONTAL		BIT(24)
 
+/* Guessed NUM_CHUNKS and NULL_SIZE are here too */
+#define DSI_VID_PKT_SIZE_V101		0x20
+#define VID_PKT_SIZE_V101(p)		((p) & 0x07ff)
+#define VID_NUM_CHUNKS_V101(c)		(((c) & 0x3ff) << 11)
+#define VID_NULL_SIZE_V101(b)		(((b) & 0x3ff) << 21)
+
 #define DSI_VID_PKT_SIZE		0x3c
 #define VID_PKT_SIZE(p)			((p) & 0x3fff)
 
@@ -107,6 +149,17 @@
 #define DSI_VID_NULL_SIZE		0x44
 #define VID_NULL_SIZE(b)		((b) & 0x1fff)
 
+#define DSI_VID_HTIME_V101		0x28
+#define DSI_VID_HSA_TIME_V101(p)	((p) & 0x1ff)
+#define DSI_VID_HBP_TIME_V101(p)	(((p) & 0x3ff) << 9)
+#define DSI_VID_HLINE_TIME_V101(p)	(((p) & 0x3fff) << 18)
+
+#define DSI_VID_VLINES_V101		0x2c
+#define DSI_VID_VSA_LINES_V101(l)	((l) & 0x0f)
+#define DSI_VID_VBP_LINES_V101(l)	(((l) & 0x3f) << 4)
+#define DSI_VID_VFP_LINES_V101(l)	(((l) & 0x3f) << 10)
+#define DSI_VID_VACTIVE_LINES_V101(l)	(((l) & 0x7ff) << 16)
+
 #define DSI_VID_HSA_TIME		0x48
 #define DSI_VID_HBP_TIME		0x4c
 #define DSI_VID_HLINE_TIME		0x50
@@ -115,6 +168,10 @@
 #define DSI_VID_VFP_LINES		0x5c
 #define DSI_VID_VACTIVE_LINES		0x60
 #define DSI_EDPI_CMD_SIZE		0x64
+
+#define DSI_CMD_MODE_CFG_V101		0x24
+#define CMD_MODE_ALL_LP_V101		(0x1fff) /* guessed */
+#define ACK_RQST_EN_V101		(0x4000) /* guessed */
 
 #define DSI_CMD_MODE_CFG		0x68
 #define MAX_RD_PKT_SIZE_LP		BIT(24)
@@ -145,9 +202,12 @@
 					 GEN_SW_1P_TX_LP | \
 					 GEN_SW_0P_TX_LP)
 
+#define DSI_GEN_HDR_V101		0x34
+#define DSI_GEN_PLD_DATA_V101		0x38
 #define DSI_GEN_HDR			0x6c
 #define DSI_GEN_PLD_DATA		0x70
 
+#define DSI_CMD_PKT_STATUS_V101		0x3c
 #define DSI_CMD_PKT_STATUS		0x74
 #define GEN_RD_CMD_BUSY			BIT(6)
 #define GEN_PLD_R_FULL			BIT(5)
@@ -167,13 +227,19 @@
 #define DSI_LP_WR_TO_CNT		0x88
 #define DSI_BTA_TO_CNT			0x8c
 
+#define DSI_LPCLK_CTRL_V101		0x5c /* guessed */
 #define DSI_LPCLK_CTRL			0x94
-#define AUTO_CLKLANE_CTRL		BIT(1)
+#define AUTO_CLKLANE_CTRL		BIT(1) /* Not confirmed for v101 */
 #define PHY_TXREQUESTCLKHS		BIT(0)
 
 #define DSI_PHY_TMR_LPCLK_CFG		0x98
 #define PHY_CLKHS2LP_TIME(lbcc)		(((lbcc) & 0x3ff) << 16)
 #define PHY_CLKLP2HS_TIME(lbcc)		((lbcc) & 0x3ff)
+
+#define DSI_PHY_TMR_CFG_V101		0x30 /* guessed */
+#define PHY_HS2LP_TIME_V101(lbcc)	(((lbcc) & 0xff) << 20)
+#define PHY_LP2HS_TIME_V101(lbcc)	(((lbcc) & 0xff) << 12)
+#define MAX_RD_TIME_V101(lbcc)		((lbcc) & 0xfff)
 
 #define DSI_PHY_TMR_CFG			0x9c
 #define PHY_HS2LP_TIME(lbcc)		(((lbcc) & 0xff) << 24)
@@ -182,6 +248,7 @@
 #define PHY_HS2LP_TIME_V131(lbcc)	(((lbcc) & 0x3ff) << 16)
 #define PHY_LP2HS_TIME_V131(lbcc)	((lbcc) & 0x3ff)
 
+#define DSI_PHY_RSTZ_V101		0x54
 #define DSI_PHY_RSTZ			0xa0
 #define PHY_DISFORCEPLL			0
 #define PHY_ENFORCEPLL			BIT(3)
@@ -192,13 +259,15 @@
 #define PHY_SHUTDOWNZ			0
 #define PHY_UNSHUTDOWNZ			BIT(0)
 
+#define DSI_PHY_IF_CFG_V101		0x58
 #define DSI_PHY_IF_CFG			0xa4
-#define PHY_STOP_WAIT_TIME(cycle)	(((cycle) & 0xff) << 8)
+#define PHY_STOP_WAIT_TIME(cycle)	(((cycle) & 0xff) << 8) /* Looks absent on v101 */
 #define N_LANES(n)			(((n) - 1) & 0x3)
 
 #define DSI_PHY_ULPS_CTRL		0xa8
 #define DSI_PHY_TX_TRIGGERS		0xac
 
+#define DSI_PHY_STATUS_V101		0x60
 #define DSI_PHY_STATUS			0xb0
 #define PHY_STOP_STATE_CLK_LANE		BIT(2)
 #define PHY_LOCK			BIT(0)
@@ -255,6 +324,7 @@ struct dw_mipi_dsi {
 	u32 lanes;
 	u32 format;
 	unsigned long mode_flags;
+	bool v101;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs;
@@ -381,6 +451,12 @@ static void dw_mipi_message_config(struct dw_mipi_dsi *dsi,
 	bool lpm = msg->flags & MIPI_DSI_MSG_USE_LPM;
 	u32 val = 0;
 
+	if (dsi->v101) {
+		dsi_write(dsi, DSI_DPI_LP_CMD_TIM_V101, OUTVACT_LPCMD_TIME(10)
+			  | INVACT_LPCMD_TIME(26));
+		return;
+	}
+
 	/*
 	 * TODO dw drv improvements
 	 * largest packet sizes during hfp or during vsa/vpb/vfp
@@ -409,8 +485,12 @@ static int dw_mipi_dsi_gen_pkt_hdr_write(struct dw_mipi_dsi *dsi, u32 hdr_val)
 {
 	int ret;
 	u32 val, mask;
+	u32 gen_hdr_reg = dsi->v101 ? DSI_GEN_HDR_V101
+				    : DSI_GEN_HDR;
+	u32 cmd_pkt_status_reg = dsi->v101 ? DSI_CMD_PKT_STATUS_V101
+					   : DSI_CMD_PKT_STATUS;
 
-	ret = readl_poll_timeout(dsi->base + DSI_CMD_PKT_STATUS,
+	ret = readl_poll_timeout(dsi->base + cmd_pkt_status_reg,
 				 val, !(val & GEN_CMD_FULL), 1000,
 				 CMD_PKT_STATUS_TIMEOUT_US);
 	if (ret) {
@@ -418,10 +498,10 @@ static int dw_mipi_dsi_gen_pkt_hdr_write(struct dw_mipi_dsi *dsi, u32 hdr_val)
 		return ret;
 	}
 
-	dsi_write(dsi, DSI_GEN_HDR, hdr_val);
+	dsi_write(dsi, gen_hdr_reg, hdr_val);
 
 	mask = GEN_CMD_EMPTY | GEN_PLD_W_EMPTY;
-	ret = readl_poll_timeout(dsi->base + DSI_CMD_PKT_STATUS,
+	ret = readl_poll_timeout(dsi->base + cmd_pkt_status_reg,
 				 val, (val & mask) == mask,
 				 1000, CMD_PKT_STATUS_TIMEOUT_US);
 	if (ret) {
@@ -437,6 +517,10 @@ static int dw_mipi_dsi_write(struct dw_mipi_dsi *dsi,
 {
 	const u8 *tx_buf = packet->payload;
 	int len = packet->payload_length, pld_data_bytes = sizeof(u32), ret;
+	u32 gen_pld_data_reg = dsi->v101 ? DSI_GEN_PLD_DATA_V101
+					 : DSI_GEN_PLD_DATA;
+	u32 cmd_pkt_status_reg = dsi->v101 ? DSI_CMD_PKT_STATUS_V101
+					   : DSI_CMD_PKT_STATUS;
 	__le32 word;
 	u32 val;
 
@@ -444,16 +528,16 @@ static int dw_mipi_dsi_write(struct dw_mipi_dsi *dsi,
 		if (len < pld_data_bytes) {
 			word = 0;
 			memcpy(&word, tx_buf, len);
-			dsi_write(dsi, DSI_GEN_PLD_DATA, le32_to_cpu(word));
+			dsi_write(dsi, gen_pld_data_reg, le32_to_cpu(word));
 			len = 0;
 		} else {
 			memcpy(&word, tx_buf, pld_data_bytes);
-			dsi_write(dsi, DSI_GEN_PLD_DATA, le32_to_cpu(word));
+			dsi_write(dsi, gen_pld_data_reg, le32_to_cpu(word));
 			tx_buf += pld_data_bytes;
 			len -= pld_data_bytes;
 		}
 
-		ret = readl_poll_timeout(dsi->base + DSI_CMD_PKT_STATUS,
+		ret = readl_poll_timeout(dsi->base + cmd_pkt_status_reg,
 					 val, !(val & GEN_PLD_W_FULL), 1000,
 					 CMD_PKT_STATUS_TIMEOUT_US);
 		if (ret) {
@@ -473,10 +557,14 @@ static int dw_mipi_dsi_read(struct dw_mipi_dsi *dsi,
 {
 	int i, j, ret, len = msg->rx_len;
 	u8 *buf = msg->rx_buf;
+	u32 gen_pld_data_reg = dsi->v101 ? DSI_GEN_PLD_DATA_V101
+					 : DSI_GEN_PLD_DATA;
+	u32 cmd_pkt_status_reg = dsi->v101 ? DSI_CMD_PKT_STATUS_V101
+					   : DSI_CMD_PKT_STATUS;
 	u32 val;
 
 	/* Wait end of the read operation */
-	ret = readl_poll_timeout(dsi->base + DSI_CMD_PKT_STATUS,
+	ret = readl_poll_timeout(dsi->base + cmd_pkt_status_reg,
 				 val, !(val & GEN_RD_CMD_BUSY),
 				 1000, CMD_PKT_STATUS_TIMEOUT_US);
 	if (ret) {
@@ -486,7 +574,7 @@ static int dw_mipi_dsi_read(struct dw_mipi_dsi *dsi,
 
 	for (i = 0; i < len; i += 4) {
 		/* Read fifo must not be empty before all bytes are read */
-		ret = readl_poll_timeout(dsi->base + DSI_CMD_PKT_STATUS,
+		ret = readl_poll_timeout(dsi->base + cmd_pkt_status_reg,
 					 val, !(val & GEN_PLD_R_EMPTY),
 					 1000, CMD_PKT_STATUS_TIMEOUT_US);
 		if (ret) {
@@ -494,7 +582,7 @@ static int dw_mipi_dsi_read(struct dw_mipi_dsi *dsi,
 			return ret;
 		}
 
-		val = dsi_read(dsi, DSI_GEN_PLD_DATA);
+		val = dsi_read(dsi, gen_pld_data_reg);
 		for (j = 0; j < 4 && j + i < len; j++)
 			buf[i + j] = val >> (8 * j);
 	}
@@ -599,6 +687,25 @@ static int dw_mipi_dsi_bridge_atomic_check(struct drm_bridge *bridge,
 	return 0;
 }
 
+static void dw_mipi_dsi_video_mode_config_v101(struct dw_mipi_dsi *dsi)
+{
+	u32 val;
+
+	val = dsi_read(dsi, DSI_MODE_CFG_V101);
+	val &= ~(ENABLE_LOW_POWER_MASK_V101|VID_MODE_TYPE_MASK_V101);
+
+	val |= ENABLE_LOW_POWER_V101;
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
+		val |= VID_MODE_TYPE_BURST_V101;
+	else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
+		val |= VID_MODE_TYPE_NON_BURST_SYNC_PULSES_V101;
+	else
+		val |= VID_MODE_TYPE_NON_BURST_SYNC_EVENTS_V101;
+
+	dsi_write(dsi, DSI_MODE_CFG_V101, val);
+}
+
 static void dw_mipi_dsi_video_mode_config(struct dw_mipi_dsi *dsi)
 {
 	u32 val;
@@ -632,29 +739,52 @@ static void dw_mipi_dsi_video_mode_config(struct dw_mipi_dsi *dsi)
 static void dw_mipi_dsi_set_mode(struct dw_mipi_dsi *dsi,
 				 unsigned long mode_flags)
 {
-	u32 val;
+	u32 val, reg;
 
 	dsi_write(dsi, DSI_PWR_UP, RESET);
 
 	if (mode_flags & MIPI_DSI_MODE_VIDEO) {
-		dsi_write(dsi, DSI_MODE_CFG, ENABLE_VIDEO_MODE);
-		dw_mipi_dsi_video_mode_config(dsi);
+		if (dsi->v101) {
+			dw_mipi_dsi_video_mode_config_v101(dsi);
+			val = dsi_read(dsi, DSI_MODE_CFG_V101);
+			val &= ~DSI_MODE_MASK_V101;
+			val |= ENABLE_VIDEO_MODE_V101;
+			dsi_write(dsi, DSI_MODE_CFG_V101, val);
+			dsi_write(dsi, DSI_CMD_MODE_CFG_V101,
+				  ACK_RQST_EN_V101);
+		} else {
+			dsi_write(dsi, DSI_MODE_CFG, ENABLE_VIDEO_MODE);
+			dw_mipi_dsi_video_mode_config(dsi);
+		}
 	} else {
-		dsi_write(dsi, DSI_MODE_CFG, ENABLE_CMD_MODE);
+		if (dsi->v101) {
+			dw_mipi_dsi_video_mode_config_v101(dsi);
+			val = dsi_read(dsi, DSI_MODE_CFG_V101);
+			val &= ~DSI_MODE_MASK_V101;
+			val |= ENABLE_CMD_MODE_V101;
+			dsi_write(dsi, DSI_MODE_CFG_V101, val);
+			dsi_write(dsi, DSI_CMD_MODE_CFG_V101,
+				  CMD_MODE_ALL_LP_V101);
+		} else {
+			dsi_write(dsi, DSI_MODE_CFG, ENABLE_CMD_MODE);
+		}
 	}
 
+	reg = dsi->v101 ? DSI_LPCLK_CTRL_V101 : DSI_LPCLK_CTRL;
 	val = PHY_TXREQUESTCLKHS;
 	if (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS)
 		val |= AUTO_CLKLANE_CTRL;
-	dsi_write(dsi, DSI_LPCLK_CTRL, val);
+	dsi_write(dsi, reg, val);
 
 	dsi_write(dsi, DSI_PWR_UP, POWERUP);
 }
 
 static void dw_mipi_dsi_disable(struct dw_mipi_dsi *dsi)
 {
+	u32 phy_rstz_reg = dsi->v101 ? DSI_PHY_RSTZ_V101 : DSI_PHY_RSTZ;
+
 	dsi_write(dsi, DSI_PWR_UP, RESET);
-	dsi_write(dsi, DSI_PHY_RSTZ, PHY_RSTZ);
+	dsi_write(dsi, phy_rstz_reg, PHY_RSTZ);
 }
 
 static void dw_mipi_dsi_init(struct dw_mipi_dsi *dsi)
@@ -691,14 +821,57 @@ static void dw_mipi_dsi_init(struct dw_mipi_dsi *dsi)
 	 * timeout clock division should be computed with the
 	 * high speed transmission counter timeout and byte lane...
 	 */
-	dsi_write(dsi, DSI_CLKMGR_CFG, TO_CLK_DIVISION(0) |
+	dsi_write(dsi, DSI_CLKMGR_CFG, TO_CLK_DIVISION(!!dsi->v101) |
 		  TX_ESC_CLK_DIVISION(esc_clk_division));
+}
+
+static void dw_mipi_dsi_dpi_config_v101(struct dw_mipi_dsi *dsi,
+					const struct drm_display_mode *mode)
+{
+	u32 val = 0;
+
+	val |= DPI_VCID(dsi->channel);
+
+	switch (dsi->format) {
+	case MIPI_DSI_FMT_RGB888:
+		val |= DPI_COLOR_CODING_24BIT_V101;
+		break;
+	case MIPI_DSI_FMT_RGB666:
+		val |= DPI_COLOR_CODING_18BIT_2_V101 | LOOSELY18_EN_V101;
+		break;
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		val |= DPI_COLOR_CODING_18BIT_1_V101;
+		break;
+	case MIPI_DSI_FMT_RGB565:
+		val |= DPI_COLOR_CODING_16BIT_1_V101;
+		break;
+	}
+
+	if (mode->flags & DRM_MODE_FLAG_NVSYNC)
+		val |= VSYNC_ACTIVE_LOW_V101;
+	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
+		val |= HSYNC_ACTIVE_LOW_V101;
+
+	dsi_write(dsi, DSI_DPI_CONFIG_V101, val);
+
+	/* DBI config, not sure if it makes sense to do */
+	val = (0x01 << 0)
+		| (0x00 << 2)
+		| (0x01 << 6)
+		| (0x00 << 8)
+		| (0x00 << 9);
+	dsi_write(dsi, DSI_DBI_CFG_V101, val);
 }
 
 static void dw_mipi_dsi_dpi_config(struct dw_mipi_dsi *dsi,
 				   const struct drm_display_mode *mode)
 {
 	u32 val = 0, color = 0;
+
+	if (dsi->v101) {
+		dw_mipi_dsi_dpi_config_v101(dsi, mode);
+		return;
+	}
 
 	switch (dsi->format) {
 	case MIPI_DSI_FMT_RGB888:
@@ -728,16 +901,19 @@ static void dw_mipi_dsi_dpi_config(struct dw_mipi_dsi *dsi,
 static void dw_mipi_dsi_packet_handler_config(struct dw_mipi_dsi *dsi)
 {
 	u32 val = CRC_RX_EN | ECC_RX_EN | BTA_EN | EOTP_TX_EN;
+	u32 reg = dsi->v101 ? DSI_PCKHDL_CFG_V101 : DSI_PCKHDL_CFG;
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_NO_EOT_PACKET)
 		val &= ~EOTP_TX_EN;
 
-	dsi_write(dsi, DSI_PCKHDL_CFG, val);
+	dsi_write(dsi, reg, val);
 }
 
 static void dw_mipi_dsi_video_packet_config(struct dw_mipi_dsi *dsi,
 					    const struct drm_display_mode *mode)
 {
+	u32 reg = dsi->v101 ? DSI_VID_PKT_SIZE_V101 : DSI_VID_PKT_SIZE;
+	u32 val = mode->hdisplay;
 	/*
 	 * TODO dw drv improvements
 	 * only burst mode is supported here. For non-burst video modes,
@@ -746,14 +922,22 @@ static void dw_mipi_dsi_video_packet_config(struct dw_mipi_dsi *dsi,
 	 * non-burst video modes, see dw_mipi_dsi_video_mode_config()...
 	 */
 
-	dsi_write(dsi, DSI_VID_PKT_SIZE,
-		       dw_mipi_is_dual_mode(dsi) ?
-				VID_PKT_SIZE(mode->hdisplay / 2) :
-				VID_PKT_SIZE(mode->hdisplay));
+	if (dw_mipi_is_dual_mode(dsi))
+		val /= 2;
+
+	if (dsi->v101)
+		val = VID_PKT_SIZE_V101(val);
+	else
+		val = VID_PKT_SIZE(val);
+
+	dsi_write(dsi, reg, val);
 }
 
 static void dw_mipi_dsi_command_mode_config(struct dw_mipi_dsi *dsi)
 {
+	/* FIXME v101: DSI_TO_CNT_CFG and DSI_BTA_TO_CNT not discovered yet */
+	if (dsi->v101)
+		return;
 	/*
 	 * TODO dw drv improvements
 	 * compute high speed transmission counter timeout according
@@ -814,7 +998,7 @@ static u32 dw_mipi_dsi_get_hcomponent_lbcc(struct dw_mipi_dsi *dsi,
 static void dw_mipi_dsi_line_timer_config(struct dw_mipi_dsi *dsi,
 					  const struct drm_display_mode *mode)
 {
-	u32 htotal, hsa, hbp, lbcc;
+	u32 htotal, hsa, hbp;
 
 	htotal = mode->htotal;
 	hsa = mode->hsync_end - mode->hsync_start;
@@ -824,14 +1008,19 @@ static void dw_mipi_dsi_line_timer_config(struct dw_mipi_dsi *dsi,
 	 * TODO dw drv improvements
 	 * computations below may be improved...
 	 */
-	lbcc = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, htotal);
-	dsi_write(dsi, DSI_VID_HLINE_TIME, lbcc);
-
-	lbcc = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, hsa);
-	dsi_write(dsi, DSI_VID_HSA_TIME, lbcc);
-
-	lbcc = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, hbp);
-	dsi_write(dsi, DSI_VID_HBP_TIME, lbcc);
+	htotal = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, htotal);
+	hsa = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, hsa);
+	hbp = dw_mipi_dsi_get_hcomponent_lbcc(dsi, mode, hbp);
+	if (!dsi->v101) {
+		dsi_write(dsi, DSI_VID_HLINE_TIME, htotal);
+		dsi_write(dsi, DSI_VID_HSA_TIME, hsa);
+		dsi_write(dsi, DSI_VID_HBP_TIME, hbp);
+	}  else {
+		dsi_write(dsi, DSI_VID_HTIME_V101,
+			  DSI_VID_HLINE_TIME_V101(htotal)
+			  | DSI_VID_HSA_TIME_V101(hsa)
+			  | DSI_VID_HBP_TIME_V101(hbp));
+	}
 }
 
 static void dw_mipi_dsi_vertical_timing_config(struct dw_mipi_dsi *dsi,
@@ -844,10 +1033,18 @@ static void dw_mipi_dsi_vertical_timing_config(struct dw_mipi_dsi *dsi,
 	vfp = mode->vsync_start - mode->vdisplay;
 	vbp = mode->vtotal - mode->vsync_end;
 
-	dsi_write(dsi, DSI_VID_VACTIVE_LINES, vactive);
-	dsi_write(dsi, DSI_VID_VSA_LINES, vsa);
-	dsi_write(dsi, DSI_VID_VFP_LINES, vfp);
-	dsi_write(dsi, DSI_VID_VBP_LINES, vbp);
+	if (!dsi->v101) {
+		dsi_write(dsi, DSI_VID_VACTIVE_LINES, vactive);
+		dsi_write(dsi, DSI_VID_VSA_LINES, vsa);
+		dsi_write(dsi, DSI_VID_VFP_LINES, vfp);
+		dsi_write(dsi, DSI_VID_VBP_LINES, vbp);
+	} else {
+		dsi_write(dsi, DSI_VID_VLINES_V101,
+			  DSI_VID_VACTIVE_LINES_V101(vactive)
+			  | DSI_VID_VSA_LINES_V101(vsa)
+			  | DSI_VID_VFP_LINES_V101(vfp)
+			  | DSI_VID_VBP_LINES_V101(vbp));
+	}
 }
 
 static void dw_mipi_dsi_dphy_timing_config(struct dw_mipi_dsi *dsi)
@@ -877,12 +1074,22 @@ static void dw_mipi_dsi_dphy_timing_config(struct dw_mipi_dsi *dsi)
 			  PHY_HS2LP_TIME_V131(timing.data_hs2lp) |
 			  PHY_LP2HS_TIME_V131(timing.data_lp2hs));
 		dsi_write(dsi, DSI_PHY_TMR_RD_CFG, MAX_RD_TIME_V131(10000));
+	} else if (hw_version == HWVER_101) {
+		dsi_write(dsi, DSI_PHY_TMR_CFG_V101,
+			  PHY_HS2LP_TIME_V101(timing.data_hs2lp) |
+			  PHY_LP2HS_TIME_V101(timing.data_lp2hs) |
+			  MAX_RD_TIME_V101(0));
 	} else {
 		dsi_write(dsi, DSI_PHY_TMR_CFG,
 			  PHY_HS2LP_TIME(timing.data_hs2lp) |
 			  PHY_LP2HS_TIME(timing.data_lp2hs) |
 			  MAX_RD_TIME(10000));
 	}
+
+	/* v101 seems not have separate timer register
+	 * for clk lanes */
+	if (dsi->v101)
+		return;
 
 	dsi_write(dsi, DSI_PHY_TMR_LPCLK_CFG,
 		  PHY_CLKHS2LP_TIME(timing.clk_hs2lp) |
@@ -891,39 +1098,48 @@ static void dw_mipi_dsi_dphy_timing_config(struct dw_mipi_dsi *dsi)
 
 static void dw_mipi_dsi_dphy_interface_config(struct dw_mipi_dsi *dsi)
 {
+	u32 reg = dsi->v101 ? DSI_PHY_IF_CFG_V101 : DSI_PHY_IF_CFG;
+
 	/*
 	 * TODO dw drv improvements
 	 * stop wait time should be the maximum between host dsi
 	 * and panel stop wait times
 	 */
-	dsi_write(dsi, DSI_PHY_IF_CFG, PHY_STOP_WAIT_TIME(0x20) |
+	dsi_write(dsi, reg, PHY_STOP_WAIT_TIME(0x20) |
 		  N_LANES(dsi->lanes));
 }
 
 static void dw_mipi_dsi_dphy_init(struct dw_mipi_dsi *dsi)
 {
+	u32 phy_rstz_reg = dsi->v101 ? DSI_PHY_RSTZ_V101 : DSI_PHY_RSTZ;
+
 	/* Clear PHY state */
-	dsi_write(dsi, DSI_PHY_RSTZ, PHY_DISFORCEPLL | PHY_DISABLECLK
+	dsi_write(dsi, phy_rstz_reg, PHY_DISFORCEPLL | PHY_DISABLECLK
 		  | PHY_RSTZ | PHY_SHUTDOWNZ);
-	dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_UNTESTCLR);
-	dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_TESTCLR);
-	dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_UNTESTCLR);
+
+	if (!dsi->v101) {
+		dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_UNTESTCLR);
+		dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_TESTCLR);
+		dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_UNTESTCLR);
+	}
 }
 
 static void dw_mipi_dsi_dphy_enable(struct dw_mipi_dsi *dsi)
 {
+	u32 phy_rstz_reg = dsi->v101 ? DSI_PHY_RSTZ_V101 : DSI_PHY_RSTZ;
+	u32 phy_status_reg = dsi->v101 ? DSI_PHY_STATUS_V101 : DSI_PHY_STATUS;
 	u32 val;
 	int ret;
 
-	dsi_write(dsi, DSI_PHY_RSTZ, PHY_ENFORCEPLL | PHY_ENABLECLK |
+	dsi_write(dsi, phy_rstz_reg, PHY_ENFORCEPLL | PHY_ENABLECLK |
 		  PHY_UNRSTZ | PHY_UNSHUTDOWNZ);
 
-	ret = readl_poll_timeout(dsi->base + DSI_PHY_STATUS, val,
+	ret = readl_poll_timeout(dsi->base + phy_status_reg, val,
 				 val & PHY_LOCK, 1000, PHY_STATUS_TIMEOUT_US);
 	if (ret)
 		DRM_DEBUG_DRIVER("failed to wait phy lock state\n");
 
-	ret = readl_poll_timeout(dsi->base + DSI_PHY_STATUS,
+	ret = readl_poll_timeout(dsi->base + phy_status_reg,
 				 val, val & PHY_STOP_STATE_CLK_LANE, 1000,
 				 PHY_STATUS_TIMEOUT_US);
 	if (ret)
@@ -932,6 +1148,10 @@ static void dw_mipi_dsi_dphy_enable(struct dw_mipi_dsi *dsi)
 
 static void dw_mipi_dsi_clear_err(struct dw_mipi_dsi *dsi)
 {
+	/* FIXME v101: not discovered */
+	if (dsi->v101)
+		return;
+
 	dsi_read(dsi, DSI_INT_ST0);
 	dsi_read(dsi, DSI_INT_ST1);
 	dsi_write(dsi, DSI_INT_MSK0, 0);
@@ -999,7 +1219,10 @@ static void dw_mipi_dsi_mode_set(struct dw_mipi_dsi *dsi,
 	dw_mipi_dsi_init(dsi);
 	dw_mipi_dsi_dpi_config(dsi, adjusted_mode);
 	dw_mipi_dsi_packet_handler_config(dsi);
-	dw_mipi_dsi_video_mode_config(dsi);
+	if (dsi->v101)
+		dw_mipi_dsi_video_mode_config_v101(dsi);
+	else
+		dw_mipi_dsi_video_mode_config(dsi);
 	dw_mipi_dsi_video_packet_config(dsi, adjusted_mode);
 	dw_mipi_dsi_command_mode_config(dsi);
 	dw_mipi_dsi_line_timer_config(dsi, adjusted_mode);
@@ -1168,6 +1391,8 @@ static void debugfs_create_files(void *data)
 
 static void dw_mipi_dsi_debugfs_init(struct dw_mipi_dsi *dsi)
 {
+	if (dsi->v101)
+		return;
 	dsi->debugfs = debugfs_create_dir(dev_name(dsi->dev), NULL);
 	if (IS_ERR(dsi->debugfs)) {
 		dev_err(dsi->dev, "failed to create debugfs root\n");
@@ -1179,6 +1404,8 @@ static void dw_mipi_dsi_debugfs_init(struct dw_mipi_dsi *dsi)
 
 static void dw_mipi_dsi_debugfs_remove(struct dw_mipi_dsi *dsi)
 {
+	if (dsi->v101)
+		return;
 	debugfs_remove_recursive(dsi->debugfs);
 	kfree(dsi->debugfs_vpg);
 }
@@ -1197,6 +1424,7 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct reset_control *apb_rst;
 	struct dw_mipi_dsi *dsi;
+	u32 hw_version;
 	int ret;
 
 	dsi = devm_drm_bridge_alloc(dev, struct dw_mipi_dsi, bridge,
@@ -1243,19 +1471,21 @@ __dw_mipi_dsi_probe(struct platform_device *pdev,
 		return ERR_PTR(ret);
 	}
 
-	if (apb_rst) {
-		ret = clk_prepare_enable(dsi->pclk);
-		if (ret) {
-			dev_err(dev, "%s: Failed to enable pclk\n", __func__);
-			return ERR_PTR(ret);
-		}
+	ret = clk_prepare_enable(dsi->pclk);
+	if (ret) {
+		dev_err(dev, "%s: Failed to enable pclk\n", __func__);
+		return ERR_PTR(ret);
+	}
 
+	if (apb_rst) {
 		reset_control_assert(apb_rst);
 		usleep_range(10, 20);
 		reset_control_deassert(apb_rst);
-
-		clk_disable_unprepare(dsi->pclk);
 	}
+
+	hw_version = dsi_read(dsi, DSI_VERSION) & VERSION;
+	dsi->v101 = hw_version == HWVER_101;
+	clk_disable_unprepare(dsi->pclk);
 
 	dw_mipi_dsi_debugfs_init(dsi);
 	pm_runtime_enable(dev);
