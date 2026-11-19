@@ -35,8 +35,10 @@
 #define HC16XX_CLK_F1188M (HC16XX_CLK_NR_CLKS + 12)
 #define HC16XX_CLK_USB0_SEL (HC16XX_CLK_NR_CLKS + 13)
 #define HC16XX_CLK_USB1_SEL (HC16XX_CLK_NR_CLKS + 14)
+#define HC16XX_CLK_DE_SEL   (HC16XX_CLK_NR_CLKS + 15)
+#define HC16XX_CLK_DE_PCLK  (HC16XX_CLK_NR_CLKS + 16)
 
-#define HC16XX_CLKS_NUM     (HC16XX_CLK_NR_CLKS + 15)
+#define HC16XX_CLKS_NUM     (HC16XX_CLK_NR_CLKS + 17)
 
 struct hc16xx_clk {
 	void __iomem *base;
@@ -77,6 +79,7 @@ struct hc16xx_clk_selector_data {
 	u8				field_offset;
 	bool				has_pll_mux;
 	u8				pll_mux;
+	unsigned long			pll_source_rate;
 	const struct hc16xx_clksel_rate	*rates;
 	int (*write_locked)(struct clk_hc16xx_selector *clk, u32 mux);
 };
@@ -90,8 +93,6 @@ struct clk_hc16xx_selector {
 #define to_clk_hc16xx_selector(_hw) \
 	container_of(_hw, struct clk_hc16xx_selector, hw)
 
-/* FIXME: might be not true for all PLLs */
-static const u32 pll_source_rate = 24000000ULL;
 static const u32 rounding_threshold = 1;
 
 static unsigned long
@@ -107,7 +108,7 @@ hc16xx_pll_rate_for_reg(struct clk_hc16xx_selector *clk, u32 reg_value)
 	n = ((reg_value & 0xff00) >> 8) + 1;
 	m = ((reg_value & 0x7fff0000) >> 16) + 1;
 
-	tmp = (u64)pll_source_rate * m;
+	tmp = (u64)clk->pdata->pll_source_rate * m;
 	do_div(tmp, n * postdiv);
 
 	return  tmp;
@@ -129,12 +130,12 @@ static int hc16xx_pll_reg_for_rate(struct clk_hc16xx_selector *clk,
 		u32 mult;
 		unsigned long diff, _rate;
 
-		do_div(tmp, pll_source_rate);
+		do_div(tmp, clk->pdata->pll_source_rate);
 		if (tmp == 0 || tmp > 32768)
 			continue;
 		mult = tmp;
 
-		tmp = (u64)mult * pll_source_rate;
+		tmp = (u64)mult * clk->pdata->pll_source_rate;
 		do_div(tmp, div * postdiv);
 
 		_rate = tmp;
@@ -347,7 +348,30 @@ static int hc16xx_mmc_write(struct clk_hc16xx_selector *clk, u32 mux)
 	return 0;
 }
 
+static const struct hc16xx_clksel_rate hc16xx_de_rates[] = {
+	{  175000000, 0 },
+	{  148500000, 1 },
+	{  198000000, 2 },
+	{  225000000, 3 },
+	{},
+};
 
+static const struct hc16xx_clksel_rate hc16xx_de_pclk_rates[] = {
+	{   27000000,  0 },
+	{   54000000,  1 },
+	{   74250000,  2 },
+	{  108000000,  3 },
+	{  132000000,  4 },
+	{  148500000,  5 },
+	{    6600000,  8 },
+	{    9000000,  9 },
+	{   33000000, 10 },
+	{   39600000, 11 },
+	{   49000000, 12 },
+	{   66000000, 13 },
+	{   85000000, 14 },
+	{},
+};
 
 static int __init
 hc16xx_sel_clk_register(struct hc16xx_clk *priv,
@@ -448,12 +472,12 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 
 	{ HC16XX_CLK_VOU_HD,          "vou-hd",         "dummy-bus", HC16XX_CLK_GATE1,  0 },
 	{ HC16XX_CLK_VE,              "ve",             "dummy-bus", HC16XX_CLK_GATE1,  1 },
-	{ HC16XX_CLK_DE,              "de",             "dummy-bus", HC16XX_CLK_GATE1,  2 },
+	{ HC16XX_CLK_DE,              "de",             "de-select", HC16XX_CLK_GATE1,  2 },
 	{ HC16XX_CLK_TVENC_SD,        "tvenc-sd",       "dummy-bus", HC16XX_CLK_GATE1,  3 },
 	{ HC16XX_CLK_GE,              "ge",             "dummy-bus", HC16XX_CLK_GATE1,  4 },
 	{ HC16XX_CLK_TVENC_HD,        "tvenc-hd",       "dummy-bus", HC16XX_CLK_GATE1,  5 },
 	{ HC16XX_CLK_VIN,             "vin",            "dummy-bus", HC16XX_CLK_GATE1,  6 },
-	{ HC16XX_CLK_DE_HDMI,         "de-hdmi",        "dummy-bus", HC16XX_CLK_GATE1,  7 },
+	{ HC16XX_CLK_DE_HDMI,         "de-hdmi",        "de-pclk",   HC16XX_CLK_GATE1,  7 },
 	{ HC16XX_CLK_VDAC1,           "vdac1",          "dummy-bus", HC16XX_CLK_GATE1,  8 },
 	{ HC16XX_CLK_VDAC2,           "vdac2",          "dummy-bus", HC16XX_CLK_GATE1,  9 },
 	{ HC16XX_CLK_VDAC3,           "vdac3",          "dummy-bus", HC16XX_CLK_GATE1, 10 },
@@ -488,6 +512,7 @@ static const struct hc16xx_clk_selector_data hc16xx_selectors[] = {
 		.reg_pll = 0x0320,
 		.has_pll_mux = true,
 		.pll_mux = 7,
+		.pll_source_rate = 24000000UL,
 	},
 	{
 		.id = HC16XX_CLK_SDMMC_CARD,
@@ -497,6 +522,26 @@ static const struct hc16xx_clk_selector_data hc16xx_selectors[] = {
 		.field_offset = 20,
 		.rates = hc16xx_mmc_rates,
 		.write_locked = hc16xx_mmc_write,
+	},
+	{
+		.id = HC16XX_CLK_DE_SEL,
+		.name = "de-select",
+		.reg_offset = HC16XX_CLK_REG_078,
+		.field_width = 2,
+		.field_offset = 18,
+		.rates = hc16xx_de_rates,
+	},
+	{
+		.id = HC16XX_CLK_DE_PCLK,
+		.name = "de-pclk",
+		.reg_offset = HC16XX_CLK_REG_078,
+		.field_width = 4,
+		.field_offset = 8,
+		.rates = hc16xx_de_pclk_rates,
+		.reg_pll = 0x0330,
+		.has_pll_mux = true,
+		.pll_mux = 7,
+		.pll_source_rate = 12000000UL,
 	},
 };
 
