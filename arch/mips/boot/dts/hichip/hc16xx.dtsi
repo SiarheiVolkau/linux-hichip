@@ -49,7 +49,8 @@
 
 	clk: clock-controller@18800060 {
 		compatible = "hichip,hc16xx-clk";
-		reg = <0x18800060 0x20>;
+		reg = <0x18800060 0x20>,
+			<0x18800380 0x80>;
 
 		clocks = <&hosc>;
 		clock-names = "hosc";
@@ -98,7 +99,7 @@
 		gpio-ranges = <&pinctrl 0 0 128>;
 
 		interrupts = <0>;
-		interrupt-parent=<&intc>;
+		interrupt-parent = <&intc>;
 
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -114,7 +115,7 @@
 		#size-cells = <0>;
 
 		interrupts = <10>;
-		interrupt-parent=<&intc>;
+		interrupt-parent = <&intc>;
 
 		clocks = <&clk HC16XX_CLK_SDMMC>, <&clk HC16XX_CLK_SDMMC_CARD>;
 		clock-names = "biu", "ciu";
