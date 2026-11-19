@@ -12,10 +12,12 @@
 
 #include <dt-bindings/clock/hichip,hc16xx-clock.h>
 
-#define HC16XX_CLK_GATE0      0x00
-#define HC16XX_CLK_GATE1      0x04
-#define HC16XX_CLK_MCLK       0x14
-#define HC16XX_CLK_SEL_REG1   0x1c
+#define HC16XX_CLK_GATE0   0x00
+#define HC16XX_CLK_GATE1   0x04
+#define HC16XX_CLK_REG_070 0x10
+#define HC16XX_CLK_REG_074 0x14
+#define HC16XX_CLK_REG_078 0x18
+#define HC16XX_CLK_REG_07C 0x1c
 
 /* internal clocks */
 #define HC16XX_CLK_F1M843 (HC16XX_CLK_NR_CLKS +  0)
@@ -40,8 +42,6 @@ struct hc16xx_clk {
 	void __iomem *base;
 	spinlock_t lock;
 
-	struct hc16xx_cpuclk *cpu;
-	struct hc16xx_mmcclk *mmc;
 	struct clk_hw_onecell_data *hw_data;
 };
 
@@ -61,198 +61,325 @@ struct hc16xx_fixed_factor {
 	unsigned int div;
 };
 
-struct hc16xx_cpuclk {
-	struct clk_hw hw;
-	struct hc16xx_clk *controller;
-};
-
-#define to_hc16xx_cpuclk(_hw) \
-	container_of(_hw, struct hc16xx_cpuclk, hw)
-
 struct hc16xx_clksel_rate {
 	unsigned long rate;
 	u8 mux;
 };
 
-static const struct hc16xx_clksel_rate hc16xx_cpuclk_rates[] = {
+struct clk_hc16xx_selector;
+
+struct hc16xx_clk_selector_data {
+	int				id;
+	const char			*name;
+	u16				reg_offset;
+	u16				reg_pll;
+	u8				field_width;
+	u8				field_offset;
+	bool				has_pll_mux;
+	u8				pll_mux;
+	const struct hc16xx_clksel_rate	*rates;
+	int (*write_locked)(struct clk_hc16xx_selector *clk, u32 mux);
+};
+
+struct clk_hc16xx_selector {
+	struct clk_hw				hw;
+	struct hc16xx_clk			*controller;
+	const struct hc16xx_clk_selector_data	*pdata;
+};
+
+#define to_clk_hc16xx_selector(_hw) \
+	container_of(_hw, struct clk_hc16xx_selector, hw)
+
+/* FIXME: might be not true for all PLLs */
+static const u32 pll_source_rate = 24000000ULL;
+static const u32 rounding_threshold = 1;
+
+static unsigned long
+hc16xx_pll_rate_for_reg(struct clk_hc16xx_selector *clk, u32 reg_value)
+{
+	u32 postdiv, m, n;
+	u64 tmp;
+
+	if (!(reg_value & BIT(31))) /* PLL is disabled */
+		return 0;
+
+	postdiv = (reg_value & 0xff) + 1;
+	n = ((reg_value & 0xff00) >> 8) + 1;
+	m = ((reg_value & 0x7fff0000) >> 16) + 1;
+
+	tmp = (u64)pll_source_rate * m;
+	do_div(tmp, n * postdiv);
+
+	return  tmp;
+}
+
+static int hc16xx_pll_reg_for_rate(struct clk_hc16xx_selector *clk,
+				   unsigned long rate, u32 *reg_value)
+{
+	u32 best_mult = 0;
+	u32 div, best_div = 0;
+	u32 best_diff = rate;
+	const u32 postdiv = 1;
+
+	/* FIXME Hardware limitations don't known,
+	 * iterating over all divs */
+	for (div = 1; div <= 256; div++) {
+		u64 tmp = (u64)rate * div * postdiv
+			+ clk->pdata->pll_source_rate / 2;
+		u32 mult;
+		unsigned long diff, _rate;
+
+		do_div(tmp, pll_source_rate);
+		if (tmp == 0 || tmp > 32768)
+			continue;
+		mult = tmp;
+
+		tmp = (u64)mult * pll_source_rate;
+		do_div(tmp, div * postdiv);
+
+		_rate = tmp;
+		diff = abs_diff(_rate, rate);
+
+		if (diff <= rounding_threshold) {
+			best_mult = mult;
+			best_div = div;
+			best_diff = diff;
+			break;
+		} else if (diff < best_diff) {
+			best_diff = diff;
+			best_div = div;
+			best_mult = mult;
+		}
+	}
+
+	if (best_div == 0)
+		return -EINVAL;
+
+	*reg_value = BIT(31)
+		   | (((best_mult - 1) & 0x7fff) << 16)
+		   | (((best_div - 1) & 0xff) << 8)
+		   | ((postdiv - 1) & 0xff);
+	return 0;
+}
+
+static unsigned long hc16xx_pll_recalc_rate(struct clk_hc16xx_selector *clk)
+{
+	u32 val = readl(clk->controller->base + clk->pdata->reg_pll);
+
+	return hc16xx_pll_rate_for_reg(clk, val);
+}
+
+static unsigned long hc16xx_clksel_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct clk_hc16xx_selector *clk = to_clk_hc16xx_selector(hw);
+	const struct hc16xx_clksel_rate	*sel = clk->pdata->rates;
+	u32 mux;
+
+	(void)parent_rate; /* parent(s) for selectors aren't known */
+
+	mux = readl(clk->controller->base + clk->pdata->reg_offset);
+	mux = (mux >> clk->pdata->field_offset)
+		& (BIT(clk->pdata->field_width) - 1);
+
+	while (sel && sel->rate) {
+		if (sel->mux == mux)
+			return sel->rate;
+		sel++;
+	}
+
+	if (!clk->pdata->has_pll_mux || mux != clk->pdata->pll_mux)
+		return 0;
+
+	return hc16xx_pll_recalc_rate(clk);
+}
+
+static int hc16xx_pll_determine_rate(struct clk_hc16xx_selector *clk,
+				     struct clk_rate_request *req)
+{
+	u32 val;
+	int err;
+
+	err = hc16xx_pll_reg_for_rate(clk, req->rate, &val);
+	if (err)
+		return err;
+
+	req->rate = hc16xx_pll_rate_for_reg(clk, val);
+	return 0;
+}
+
+static int hc16xx_clksel_determine_rate(struct clk_hw *hw,
+					struct clk_rate_request *req)
+{
+	struct clk_hc16xx_selector *clk = to_clk_hc16xx_selector(hw);
+	const struct hc16xx_clksel_rate *sel = clk->pdata->rates;
+	const struct hc16xx_clksel_rate *best = NULL;
+	unsigned long best_diff = ULONG_MAX;
+
+	while (sel && sel->rate) {
+		unsigned long rate = sel->rate;
+		unsigned long diff = abs_diff(rate, req->rate);
+		if (!best || diff < best_diff) {
+			best = sel;
+			best_diff = diff;
+		}
+		sel++;
+	}
+
+	if (!best)
+		return -EINVAL;
+
+	if (!clk->pdata->has_pll_mux || best_diff <= rounding_threshold) {
+		req->rate = best->rate;
+		return 0;
+	}
+
+	return hc16xx_pll_determine_rate(clk, req);
+}
+
+static int hc16xx_clksel_set_rate(struct clk_hw *hw,
+				  unsigned long rate,
+				  unsigned long parent_rate)
+{
+	struct clk_hc16xx_selector *clk = to_clk_hc16xx_selector(hw);
+	const struct hc16xx_clksel_rate *sel = clk->pdata->rates;
+	u8 width = clk->pdata->field_width;
+	u8 shift = clk->pdata->field_offset;
+	unsigned long flags;
+	u32 val, mux;
+	int err = 0;
+
+	while (sel && sel->rate) {
+		unsigned long diff = abs_diff(sel->rate, rate);
+		if (diff <= rounding_threshold)
+			break;
+		sel++;
+	}
+
+	if (sel && sel->rate) {
+		mux = sel->mux;
+	} else if (sel && clk->pdata->has_pll_mux) {
+		mux = clk->pdata->pll_mux;
+		err = hc16xx_pll_reg_for_rate(clk, rate, &val);
+		if (err)
+			return err;
+	} else {
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&clk->controller->lock, flags);
+
+	if (clk->pdata->has_pll_mux && mux == clk->pdata->pll_mux)
+		writel(val, clk->controller->base + clk->pdata->reg_pll);
+
+	if (clk->pdata->write_locked) {
+		err = clk->pdata->write_locked(clk, mux);
+	} else {
+		val = readl(clk->controller->base + clk->pdata->reg_offset);
+		val &= ~((BIT(width) - 1) << shift);
+		val |= mux << shift;
+		writel(val, clk->controller->base + clk->pdata->reg_offset);
+	}
+
+	spin_unlock_irqrestore(&clk->controller->lock, flags);
+
+	return err;
+}
+
+static const struct clk_ops hc16xx_clksel_ops = {
+	.recalc_rate    = hc16xx_clksel_recalc_rate,
+	.determine_rate = hc16xx_clksel_determine_rate,
+	.set_rate       = hc16xx_clksel_set_rate,
+};
+
+static const struct hc16xx_clksel_rate hc16xx_mcpu_rates[] = {
 	{  198000000, 3 },
 	{  297000000, 2 },
 	{  396000000, 1 },
 	{  594000000, 0 },
 	{  900000000, 4 },
 	{ 1188000000, 5 },
+	{},
 };
 
-static unsigned long hc16xx_cpuclk_recalc_rate(struct clk_hw *hw,
-					       unsigned long parent_rate)
+static int hc16xx_mcpu_write(struct clk_hc16xx_selector *clk, u32 mux)
 {
-	struct hc16xx_cpuclk *cpuclk = to_hc16xx_cpuclk(hw);
-	u32 mux;
-	int i;
-
-	mux = readl(cpuclk->controller->base + HC16XX_CLK_MCLK);
-	mux = (mux >> 8) & 0x07;
-
-	for (i = 0; i < ARRAY_SIZE(hc16xx_cpuclk_rates); i++)
-		if (hc16xx_cpuclk_rates[i].mux == mux)
-			return hc16xx_cpuclk_rates[i].rate;
-
-	return 0;
-}
-
-static int hc16xx_cpuclk_determine_rate(struct clk_hw *hw,
-					struct clk_rate_request *req)
-{
-	const struct hc16xx_clksel_rate *best = NULL;
-	unsigned long best_diff = ULONG_MAX;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(hc16xx_cpuclk_rates); i++) {
-		unsigned long r = hc16xx_cpuclk_rates[i].rate;
-		unsigned long diff = abs_diff(r, req->rate);
-
-		if (!best || diff < best_diff) {
-			best = &hc16xx_cpuclk_rates[i];
-			best_diff = diff;
-		}
-	}
-
-	if (!best)
-		return -EINVAL;
-
-	req->rate = best->rate;
-	return 0;
-}
-
-static int hc16xx_cpuclk_set_rate(struct clk_hw *hw,
-				  unsigned long rate,
-				  unsigned long parent_rate)
-{
-	struct hc16xx_cpuclk *cpuclk = to_hc16xx_cpuclk(hw);
-	unsigned long flags;
 	u32 val;
-	int i;
+	u8 width = clk->pdata->field_width;
+	u8 shift = clk->pdata->field_offset;
 
-	for (i = 0; i < ARRAY_SIZE(hc16xx_cpuclk_rates); i++) {
-		if (hc16xx_cpuclk_rates[i].rate == rate)
-			break;
-	}
+	val = readl(clk->controller->base + HC16XX_CLK_REG_07C);
+	if (mux == clk->pdata->pll_mux)
+		val |= BIT(7);
+	else
+		val &= ~BIT(7);
+	writel(val, clk->controller->base + HC16XX_CLK_REG_07C);
 
-	if (i == ARRAY_SIZE(hc16xx_cpuclk_rates))
-		return -EINVAL;
-
-	spin_lock_irqsave(&cpuclk->controller->lock, flags);
-
-	val = readl(cpuclk->controller->base + HC16XX_CLK_MCLK);
-	val &= ~GENMASK(10, 8);
-	val |= hc16xx_cpuclk_rates[i].mux << 8;
+	val = readl(clk->controller->base + HC16XX_CLK_REG_074);
+	val &= ~((BIT(width) - 1) << shift);
+	val |= mux << shift;
 	val |= BIT(22); /* Apply new clock source */
-	writel(val, cpuclk->controller->base + HC16XX_CLK_MCLK);
-
-	spin_unlock_irqrestore(&cpuclk->controller->lock, flags);
+	writel(val, clk->controller->base + HC16XX_CLK_REG_074);
 
 	return 0;
 }
 
-static const struct clk_ops hc16xx_cpuclk_ops = {
-	.recalc_rate    = hc16xx_cpuclk_recalc_rate,
-	.determine_rate = hc16xx_cpuclk_determine_rate,
-	.set_rate       = hc16xx_cpuclk_set_rate,
-};
-
-struct hc16xx_mmcclk {
-	struct clk_hw hw;
-	struct hc16xx_clk *controller;
-};
-
-#define to_hc16xx_mmcclk(_hw) \
-	container_of(_hw, struct hc16xx_mmcclk, hw)
-
-
-static const struct hc16xx_clksel_rate hc16xx_mmcclk_rates[] = {
+static const struct hc16xx_clksel_rate hc16xx_mmc_rates[] = {
 	{  198000000, 3 },
 	{  148500000, 2 },
 	{   99000000, 1 },
 	{   49500000, 0 },
+	{},
 };
 
-static unsigned long hc16xx_mmcclk_recalc_rate(struct clk_hw *hw,
-					       unsigned long parent_rate)
+static int hc16xx_mmc_write(struct clk_hc16xx_selector *clk, u32 mux)
 {
-	struct hc16xx_mmcclk *mmcclk = to_hc16xx_mmcclk(hw);
-	u32 mux;
-	int i;
-
-	mux = readl(mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
-	mux = (mux >> 20) & 0x03;
-
-	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++)
-		if (hc16xx_mmcclk_rates[i].mux == mux)
-			return hc16xx_mmcclk_rates[i].rate;
-
-	return 0;
-}
-
-static int hc16xx_mmcclk_determine_rate(struct clk_hw *hw,
-					struct clk_rate_request *req)
-{
-	const struct hc16xx_clksel_rate *best = NULL;
-	unsigned long best_diff = ULONG_MAX;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++) {
-		unsigned long r = hc16xx_mmcclk_rates[i].rate;
-		unsigned long diff = abs_diff(r, req->rate);
-
-		if (!best || diff < best_diff) {
-			best = &hc16xx_mmcclk_rates[i];
-			best_diff = diff;
-		}
-	}
-
-	if (!best)
-		return -EINVAL;
-
-	req->rate = best->rate;
-	return 0;
-}
-
-static int hc16xx_mmcclk_set_rate(struct clk_hw *hw,
-				  unsigned long rate,
-				  unsigned long parent_rate)
-{
-	struct hc16xx_mmcclk *mmcclk = to_hc16xx_mmcclk(hw);
-	unsigned long flags;
 	u32 val;
-	int i;
+	u8 width = clk->pdata->field_width;
+	u8 shift = clk->pdata->field_offset;
 
-	for (i = 0; i < ARRAY_SIZE(hc16xx_mmcclk_rates); i++) {
-		if (hc16xx_mmcclk_rates[i].rate == rate)
-			break;
-	}
-
-	if (i == ARRAY_SIZE(hc16xx_mmcclk_rates))
-		return -EINVAL;
-
-	spin_lock_irqsave(&mmcclk->controller->lock, flags);
-
-	val = readl(mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
-	val &= ~GENMASK(21, 20);
-	val |= hc16xx_mmcclk_rates[i].mux << 20;
-	val |= BIT(1); /* Apply new clock source bit */
-	writel(val, mmcclk->controller->base + HC16XX_CLK_SEL_REG1);
-
-	spin_unlock_irqrestore(&mmcclk->controller->lock, flags);
+	val = readl(clk->controller->base + clk->pdata->reg_offset);
+	val &= ~((BIT(width) - 1) << shift);
+	val |= mux << shift;
+	val |= BIT(1); /* Apply new clock source */
+	writel(val, clk->controller->base + clk->pdata->reg_offset);
 
 	return 0;
 }
 
-static const struct clk_ops hc16xx_mmcclk_ops = {
-	.recalc_rate    = hc16xx_mmcclk_recalc_rate,
-	.determine_rate = hc16xx_mmcclk_determine_rate,
-	.set_rate       = hc16xx_mmcclk_set_rate,
-};
 
+
+static int __init
+hc16xx_sel_clk_register(struct hc16xx_clk *priv,
+			const struct hc16xx_clk_selector_data* data)
+{
+	struct clk_hc16xx_selector *clk;
+	struct clk_init_data init = { 0 };
+	int ret;
+
+	clk = kzalloc(sizeof(*clk), GFP_KERNEL);
+	if (!clk)
+		return -ENOMEM;
+
+	init.name = data->name;
+	init.ops = &hc16xx_clksel_ops;
+	init.flags = 0;
+	init.num_parents = 0;
+	init.parent_names = NULL;
+
+	clk->hw.init = &init;
+	clk->controller = priv;
+	clk->pdata = data;
+
+	ret = clk_hw_register(NULL, &clk->hw);
+	if (ret) {
+		kfree(clk);
+		return ret;
+	}
+
+	priv->hw_data->hws[data->id] = &clk->hw;
+	return 0;
+}
 
 /* mostly guessing by names */
 static const struct hc16xx_fixed_factor hc16xx_fixed[] = {
@@ -349,64 +476,46 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 	{ HC16XX_CLK_TVDEC,           "tvdec",          "dummy-bus", HC16XX_CLK_GATE1, 30 },
 };
 
+static const struct hc16xx_clk_selector_data hc16xx_selectors[] = {
+	{
+		.id = HC16XX_CLK_MCPU,
+		.name = "mcpu",
+		.reg_offset = HC16XX_CLK_REG_070,
+		.field_width = 3,
+		.field_offset = 8,
+		.rates = hc16xx_mcpu_rates,
+		.write_locked = hc16xx_mcpu_write,
+		.reg_pll = 0x0320,
+		.has_pll_mux = true,
+		.pll_mux = 7,
+	},
+	{
+		.id = HC16XX_CLK_SDMMC_CARD,
+		.name = "sdmmc-card",
+		.reg_offset = HC16XX_CLK_REG_07C,
+		.field_width = 2,
+		.field_offset = 20,
+		.rates = hc16xx_mmc_rates,
+		.write_locked = hc16xx_mmc_write,
+	},
+};
+
 static inline const char* hc16xx_parent_name(const char *name, const char *hosc)
 {
 	return strcmp(name, "hosc") != 0 ? name : hosc;
 }
 
-static int __init hc16xx_mcpu_clk_register(struct hc16xx_clk *priv)
+static int __init hc16xx_register_selector_clocks(struct hc16xx_clk *priv)
 {
-	struct hc16xx_cpuclk *cpuclk;
-	struct clk_init_data init = { 0 };
 	int ret;
+	int i;
 
-	cpuclk = kzalloc(sizeof(*cpuclk), GFP_KERNEL);
-	if (!cpuclk)
-		return -ENOMEM;
+	for (i = 0; i < ARRAY_SIZE(hc16xx_selectors); i++) {
+		ret = hc16xx_sel_clk_register(priv, &hc16xx_selectors[i]);
+		if (ret)
+			return ret;
+	}
 
-	init.name = "mcpu";
-	init.ops = &hc16xx_cpuclk_ops;
-	init.flags = 0;
-	init.num_parents = 0;
-	init.parent_names = NULL;
-
-	cpuclk->hw.init = &init;
-	cpuclk->controller = priv;
-	priv->cpu = cpuclk;
-
-	ret = clk_hw_register(NULL, &cpuclk->hw);
-	if (ret)
-		return ret;
-
-	priv->hw_data->hws[HC16XX_CLK_MCPU] = &cpuclk->hw;
-	return 0;
-}
-
-static int __init hc16xx_mmc_card_clk_register(struct hc16xx_clk *priv)
-{
-	struct hc16xx_mmcclk *mmcclk;
-	struct clk_init_data init = { 0 };
-	int ret;
-
-	mmcclk = kzalloc(sizeof(*mmcclk), GFP_KERNEL);
-	if (!mmcclk)
-		return -ENOMEM;
-
-	init.name = "sdmmc-card";
-	init.ops = &hc16xx_mmcclk_ops;
-	init.flags = 0;
-	init.num_parents = 0;
-	init.parent_names = NULL;
-
-	mmcclk->hw.init = &init;
-	mmcclk->controller = priv;
-	priv->mmc = mmcclk;
-
-	ret = clk_hw_register(NULL, &mmcclk->hw);
-	if (ret)
-		return ret;
-
-	priv->hw_data->hws[HC16XX_CLK_SDMMC_CARD] = &mmcclk->hw;
 	return 0;
 }
 
@@ -419,7 +528,7 @@ static int __init hc16xx_register_usb_clks(struct hc16xx_clk *priv)
 	 * Clock rate for bit 0 is pure guessing. */
 	hw = clk_hw_register_divider(NULL,
 				     "usb0-sel", "f198m", 0,
-				     priv->base + HC16XX_CLK_SEL_REG1,
+				     priv->base + HC16XX_CLK_REG_07C,
 				     12, 1, 0, &priv->lock);
 	if (IS_ERR(hw))
 		return PTR_ERR(hw);
@@ -428,7 +537,7 @@ static int __init hc16xx_register_usb_clks(struct hc16xx_clk *priv)
 
 	hw = clk_hw_register_divider(NULL,
 				     "usb1-sel", "f198m", 0,
-				     priv->base + HC16XX_CLK_SEL_REG1,
+				     priv->base + HC16XX_CLK_REG_07C,
 				     13, 1, 0, &priv->lock);
 	if (IS_ERR(hw))
 		return PTR_ERR(hw);
@@ -452,7 +561,7 @@ static void __init hc16xx_clk_init(struct device_node *np)
 	spin_lock_init(&priv->lock);
 
 	priv->base = of_iomap(np, 0);
-	if (IS_ERR(priv->base))
+	if (!priv->base)
 		panic("failed to remap registers block 0\n");
 
 	priv->hw_data = kzalloc(
@@ -501,13 +610,9 @@ static void __init hc16xx_clk_init(struct device_node *np)
 		priv->hw_data->hws[g->id] = hw;
 	}
 
-	ret = hc16xx_mcpu_clk_register(priv);
+	ret = hc16xx_register_selector_clocks(priv);
 	if (ret)
-		panic("failed to register cpu clock %d\n", ret);
-
-	ret = hc16xx_mmc_card_clk_register(priv);
-	if (ret)
-		panic("failed to register sdmmc-card clock %d\n", ret);
+		panic("failed to register selector clocks %d\n", ret);
 
 	ret = hc16xx_register_usb_clks(priv);
 	if (ret)
