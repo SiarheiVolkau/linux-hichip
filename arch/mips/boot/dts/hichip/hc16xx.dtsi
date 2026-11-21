@@ -108,6 +108,87 @@
 		#interrupt-cells = <2>;
 	};
 
+	de: display-engine@18808000 {
+		compatible = "hichip,hc16xx-de";
+		reg = <0x18808000 0x2000>,
+			<0x1883a000 0x2000>,
+			<0x18800444 0x0c>;
+		reg-names = "de", "de4k", "crossbar";
+
+		interrupts = <2>, <40>;
+		interrupt-parent = <&intc>;
+		interrupt-names = "de", "de4k";
+
+		clocks = <&clk HC16XX_CLK_DE>,
+			 <&clk HC16XX_CLK_DE_HDMI>,
+			 <&clk HC16XX_CLK_VOU_HD_EXT>;
+		clock-names = "de", "de-pclk", "de-out-hd";
+
+		resets = <&reset HC16XX_DE_RESET>,
+			 <&reset HC16XX_DE4K_RESET>;
+		reset-names = "de", "de4k";
+
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			de_to_dsi: port@0 {
+				reg = <0>;
+				de_to_dsi_out: endpoint {
+					remote-endpoint = <&dsi_host_in>;
+				};
+			};
+
+			/* TODO there's at least 3 ports remains
+			 * uncovered:
+			 * - HDMI-out
+			 * - Parallel (LVDS/RGB combo)
+			 * - Analog-out (VGA/CVBS combo)
+			 */
+		};
+	};
+
+	mipi_dsi: dsi@1884a000 {
+		compatible = "hichip,hc16xx-mipi-dsi", "snps,dw-mipi-dsi";
+		reg = <0x1884a000 0x100>;
+
+		interrupts = <42>;
+		interrupt-parent = <&intc>;
+
+		clocks = <&clk HC16XX_CLK_MIPI>;
+		clock-names = "pclk";
+
+		phys = <&dsi_phy>;
+		phy-names = "dphy";
+
+		resets = <&reset HC16XX_MIPI_HOST_RESET>;
+		reset-names = "apb";
+
+		status = "disabled";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_in: port@0 {
+				reg = <0>;
+
+				dsi_host_in: endpoint {
+					remote-endpoint = <&de_to_dsi_out>;
+				};
+			};
+
+			mipi_out: port@1 {
+				reg = <1>;
+				dsi_host_out: endpoint {
+				};
+			};
+
+		};
+	};
+
 	mmc: dw-mmc@1884c000 {
 		compatible = "snps,dw-mshc";
 		reg = <0x1884c000 0x2000>;
@@ -238,5 +319,17 @@
 		compatible = "hichip,hc16xx-usb-phy";
 		reg = <0x18845100 0x24>;
 		#phy-cells = <0>;
+	};
+
+	dsi_phy: phy@1884a100 {
+		compatible = "hichip,hc16xx-inno-dphy";
+		reg = <0x1884a100 0x200>;
+		#phy-cells = <0>;
+
+		clocks = <&clk HC16XX_CLK_MIPI>;
+		clock-names = "apb";
+
+		resets = <&reset HC16XX_MIPI_PHY_RESET>;
+		status = "disabled";
 	};
 };
