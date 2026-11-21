@@ -15,7 +15,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p1 rw rootwait init=/mininit-syspart mem=192M";
+		bootargs = "console=ttyS0,115200 console=tty0 earlycon root=/dev/mmcblk0p1 rw rootwait init=/mininit-syspart";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -122,13 +122,46 @@
 		pinctrl-names = "default";
 
 		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
-		default-brightness-level = <0>;
+		default-brightness-level = <7>;
 	};
+};
 
-	backlight-test {
-		compatible = "backlight-test-disabled";
+&de {
+	status = "okay";
+
+	assigned-clocks = <&clk HC16XX_CLK_DE>;
+	assigned-clock-rates = <148500000>;
+};
+
+&dsi_phy {
+	status = "okay";
+};
+
+&mipi_dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+
+	panel_dsi: panel@0 {
+		compatible = "noname,gc9503x-dsi-480x854";
+		status = "okay";
+		reg = <0>;
+
+		rotation = <90>;
+		reset-gpios = <&gpio 6 GPIO_ACTIVE_LOW>;
+
 		backlight = <&backlight>;
+		port {
+			panel_dsi_in: endpoint {
+				remote-endpoint = <&dsi_host_out>;
+			};
+		};
 	};
+};
+
+&dsi_host_out {
+	remote-endpoint = <&panel_dsi_in>;
 };
 
 &mmc {
