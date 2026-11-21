@@ -31,19 +31,21 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | Watchdog |  |  |
 | GPIO | Done |  |
 | Pin controller | Done |  |
-| DMA | TODO |  |
-| SFSPI | TODO |  |
-| SPI master | TODO |  |
+| DMA |  |  |
+| SFSPI |  |  |
+| SPI master |  |  |
 | ADC |  |  |
 | PWM/Backlight | Done |  |
 | MMC / SD | Partial | No high-speed modes yet |
 | USB | Partial | No DMA, no OTG, no Host mode |
 | I2C |  |  |
 | I2S | TODO |  |
-| Display Controller / DE | WiP |  |
-| MIPI-DSI | TODO |  |
+| Display Controller / DE | Partial | Only part of DE features implemented: no scaling, no overlay |
+| MIPI-DSI host & PHY | Done | sort of Synopsys DW MIPI DSI host with InnoSilicon PHY |
 | HDMI |  |  |
 | Multimedia IPs |  | H264,JPEG decoders etc. |
+| GE/2D accellerator | TODO| Might improve framebuffer rotation, worth trying |
+| Power management | TODO |  |
 
 ## Current SF3000 support
 | Subsystem | Status | Notes |
@@ -53,7 +55,7 @@ The goal of this project is to provide a clean, upstream-oriented Linux port for
 | RGB LED | N/A | Can't be controlled in software |
 | D-Pad, Buttons | Done | Obscure serializer in use for 12 keys, 4 keys are GPIO |
 | Joysticks | Done | Wired in parallel to corresponding buttons |
-| Display | TODO | MIPI-DSI display of unknown model |
+| Display | Done | MIPI-DSI display GC9503V based, right-top rotated - needs software tricks for rotating framebuffer |
 | Backlight | Done | PWM backlight driver. minimally tested. Need to pick proper PWM points for linearity. |
 | Audio | TODO | External DAC, amplifier, integrated mono speaker, headphone jack |
 | TF card slot | Done |  |
