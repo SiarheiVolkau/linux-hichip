@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config DRM_HICHIP_DE
+	tristate "HiChip Display Engine"
+	depends on DRM && OF
+	depends on (COMPILE_TEST || MACH_HICHIP)
+	select DRM_CLIENT_SELECTION
+	select DRM_KMS_HELPER
+	select DRM_GEM_DMA_HELPER
+	help
+	  Chose this option if you have an HiChip HC15xx or HC16xx
+	  SOC Display Engine (aka DE).
+
+	  If M is selected this module will be called hichip-de.
