@@ -442,8 +442,6 @@ static const struct hc16xx_gate_desc hc16xx_gates[] = {
 	{ HC16XX_CLK_UART23,          "uart2-3",        "sb-1843k",  HC16XX_CLK_GATE1, 11 },
 
 	{ HC16XX_CLK_SFSPI,           "sfspi",          "dummy-bus", HC16XX_CLK_GATE0,  0 },
-	/* disabling SFSPI hangs the system when SDMMC is in use,
-	 * so set as parent but might not be actual parent though */
 	{ HC16XX_CLK_SDMMC,           "sdmmc",          "dummy-bus", HC16XX_CLK_GATE0,  1 },
 	{ HC16XX_CLK_NAND,            "nand",           "dummy-bus", HC16XX_CLK_GATE0,  2 },
 	{ HC16XX_CLK_DESCRAMBLE,      "descramble",     "dummy-bus", HC16XX_CLK_GATE0,  3 },
