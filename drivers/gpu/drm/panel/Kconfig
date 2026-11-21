@@ -569,6 +569,14 @@ config DRM_PANEL_NEWVISION_NV3052C
 	  Say Y here if you want to enable support for the panels built
 	  around the NewVision NV3052C display controller.
 
+config DRM_PANEL_NONAME_GC9503X
+	tristate "Noname GC9503X based panel driver with 480X854 resolution"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	help
+	  This driver supports the GC9503X based panel found on the SF3000
+	  gaming console.
+
 config DRM_PANEL_NOVATEK_NT35510
 	tristate "Novatek NT35510 RGB panel driver"
 	depends on OF
