@@ -45,6 +45,14 @@ static const struct drm_driver hichip_drm_driver = {
 	.minor = 0,
 };
 
+static irqreturn_t hichip_de_irq_handler(int, void *ctx)
+{
+	struct hichip_drm *hdev = ctx;
+
+	hichip_crtc_handle_irq(hdev);
+	return IRQ_HANDLED;
+}
+
 static void hichip_reset_assert(void *data)
 {
 	struct reset_control *rst = data;
@@ -149,6 +157,15 @@ static int hichip_drm_probe(struct platform_device *pdev)
 				       hdev->rst);
 	if (ret)
 		return ret;
+
+	hdev->de_irq = platform_get_irq_byname(pdev, "de");
+	if (hdev->de_irq < 0)
+		return hdev->de_irq;
+
+	ret = devm_request_irq(dev, hdev->de_irq, hichip_de_irq_handler,
+			       0, "DE", hdev);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to request IRQ\n");
 
 	drm_mode_config_init(drm);
 

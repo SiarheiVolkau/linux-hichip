@@ -27,6 +27,7 @@ struct hichip_drm {
 	struct drm_crtc crtc;
 	struct hichip_gma gma0;
 	struct hichip_gma gma1;
+	int de_irq;
 	bool de_pclk_enabled;
 };
 

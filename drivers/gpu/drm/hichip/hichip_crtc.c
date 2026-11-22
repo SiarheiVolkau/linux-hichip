@@ -2,10 +2,12 @@
 
 #include <linux/iopoll.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_blend.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_modeset_helper.h>
+#include <drm/drm_vblank.h>
 
 #include "hichip_drv.h"
 #include "hichip_crtc.h"
@@ -40,6 +42,8 @@
 #define DE_CTL0_ENABLE		BIT(0)
 #define DE_CTL0_COUNTERS	BIT(2)
 #define DE_CTL0_HD_ENABLE	BIT(4)
+#define DE_INT_VBLANK_MASK	BIT(4)
+#define DE_INT_VBLANK_PEND	(DE_INT_VBLANK_MASK << 8)
 
 static inline void hichip_de_write(struct hichip_drm *hdev,
 				   u32 reg, u32 val)
@@ -63,6 +67,14 @@ static inline void hichip_de_update(struct hichip_drm *hdev,
 	hichip_de_write(hdev, reg, tmp);
 }
 
+static u32 hichip_clear_irqflags(struct hichip_drm *hdev)
+{
+	u32 irq = hichip_de_read(hdev, DE_INT);
+
+	hichip_de_write(hdev, DE_INT, irq);
+	return irq;
+}
+
 static void hichip_crtc_reset(struct drm_crtc *crtc)
 {
 	drm_atomic_helper_crtc_reset(crtc);
@@ -71,6 +83,33 @@ static void hichip_crtc_reset(struct drm_crtc *crtc)
 static void hichip_crtc_destroy(struct drm_crtc *crtc)
 {
 	drm_crtc_cleanup(crtc);
+}
+
+static int hichip_crtc_enable_vblank(struct drm_crtc *crtc)
+{
+	struct hichip_drm *hdev = container_of(crtc, struct hichip_drm, crtc);
+	u32 irq = hichip_de_read(hdev, DE_INT);
+
+	/*
+	 * Likely interlaced top/bottom interrupts.
+	 * For progressive modes active both in
+	 * round-robin order (verify).
+	 */
+	irq |= DE_INT_VBLANK_MASK;
+
+	hichip_de_write(hdev, DE_INT, irq);
+
+	return 0;
+}
+
+static void hichip_crtc_disable_vblank(struct drm_crtc *crtc)
+{
+	struct hichip_drm *hdev = container_of(crtc, struct hichip_drm, crtc);
+	u32 irq = hichip_de_read(hdev, DE_INT);
+
+	irq &= ~DE_INT_VBLANK_MASK;
+
+	hichip_de_write(hdev, DE_INT, irq);
 }
 
 static const struct drm_crtc_funcs hichip_crtc_funcs = {
@@ -82,6 +121,9 @@ static const struct drm_crtc_funcs hichip_crtc_funcs = {
 
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
+
+	.enable_vblank = hichip_crtc_enable_vblank,
+	.disable_vblank = hichip_crtc_disable_vblank,
 };
 
 /*
@@ -208,8 +250,6 @@ static void hichip_fxde_init(struct hichip_drm *hdev, u32 hactive)
 
 	hichip_de_update(hdev, DE_INT, 0xff, 0);
 
-	hichip_de_write(hdev, DE_ISRLINE, (10 << 16) | 10);
-
 	hichip_de_write(hdev, DE_080, 0x00020102);
 	hichip_de_write(hdev, DE_084, 0x00020102);
 
@@ -266,12 +306,30 @@ static void hichip_fxde_set_timings(struct hichip_drm *hdev,
 
 	hichip_de_write(hdev, DE_TIM7, 0x0fff0fff);
 	hichip_de_write(hdev, DE_TIM8, (t->vtotal << 16) | 0x0fff);
+
+	hichip_de_write(hdev, DE_ISRLINE, (0 << 16) | (t->vactive + 1));
 }
 
 static void hichip_crtc_atomic_flush(struct drm_crtc *crtc,
 				     struct drm_atomic_commit *state)
 {
 	struct hichip_drm *hdev = container_of(crtc, struct hichip_drm, crtc);
+	struct drm_pending_vblank_event *event;
+	struct drm_crtc_state *new_state =
+		drm_atomic_get_new_crtc_state(state, crtc);
+	struct drm_device *drm = crtc->dev;
+
+	spin_lock_irq(&drm->event_lock);
+	event = new_state->event;
+	new_state->event = NULL;
+	if (event) {
+		if (drm_crtc_vblank_get(crtc) == 0)
+			drm_crtc_arm_vblank_event(crtc, event);
+		else
+			drm_crtc_send_vblank_event(crtc, event);
+	}
+
+	spin_unlock_irq(&drm->event_lock);
 
 	hichip_de_write(hdev, DE_188, hichip_crtc_bg_color(crtc->state));
 }
@@ -325,6 +383,7 @@ static void hichip_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	/* Start FXDE output. */
 	hichip_de_update(hdev, DE_CTL0, DE_CTL0_ENABLE, DE_CTL0_ENABLE);
+	drm_crtc_vblank_on(&hdev->crtc);
 }
 
 static void hichip_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -333,6 +392,8 @@ static void hichip_crtc_atomic_disable(struct drm_crtc *crtc,
 	struct hichip_drm *hdev = container_of(crtc, struct hichip_drm, crtc);
 
 	(void)commit;
+
+	drm_crtc_vblank_off(&hdev->crtc);
 
 	hichip_de_update(hdev, DE_CTL0, DE_CTL0_ENABLE, 0);
 	hichip_de_update(hdev, DE_CTL0, DE_CTL0_COUNTERS, 0);
@@ -360,6 +421,8 @@ int hichip_crtc_init(struct hichip_drm *hdev)
 	if (ret)
 		return ret;
 
+	drm_vblank_init(&hdev->drm, 1);
+
 	drm_crtc_attach_background_color_property(&hdev->crtc);
 
 	drm_crtc_helper_add(&hdev->crtc, &hichip_crtc_helper_funcs);
@@ -370,4 +433,13 @@ int hichip_crtc_init(struct hichip_drm *hdev)
 void hichip_crtc_fini(struct hichip_drm *hdev)
 {
 	/* Nothing to do yet, for API symmetry */
+}
+
+void hichip_crtc_handle_irq(struct hichip_drm *hdev)
+{
+	u32 pending = hichip_clear_irqflags(hdev);
+
+	if ((pending & DE_INT_VBLANK_MASK)
+	    && (pending & DE_INT_VBLANK_PEND))
+		drm_crtc_handle_vblank(&hdev->crtc);
 }
